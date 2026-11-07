@@ -9,6 +9,7 @@
  * persisted by this plugin, and the whole index is a derived cache.
  */
 
+import { readFileSync } from 'node:fs'
 import { isPeakNow, resolvePricing } from './lib/pricing.js'
 import {
   aggregateDays,
@@ -21,10 +22,50 @@ import {
 } from './lib/stats.js'
 
 const ROUTE = '/api/session-usage/query'
+const UPDATE_ROUTE = '/api/session-usage/update'
+const UPDATE_API = 'https://api.github.com/repos/Cottins-Vanilla/dsh-session-usage/releases/latest'
+const RELEASES_URL = 'https://github.com/Cottins-Vanilla/dsh-session-usage/releases'
+const UPDATE_TTL = 6 * 60 * 60 * 1000
 const DEFAULT_MAX_SESSIONS = 400
 const DEFAULT_CHART_DAYS = 14
 const READ_CONCURRENCY = 3
 const TURN_SERIES_LIMIT = 8
+
+function readPackageVersion() {
+  try {
+    const body = readFileSync(new URL('./package.json', import.meta.url), 'utf8')
+    const parsed = JSON.parse(body)
+    return typeof parsed.version === 'string' ? parsed.version : ''
+  } catch {
+    return ''
+  }
+}
+
+const CURRENT_VERSION = readPackageVersion()
+
+function parseVersion(value) {
+  const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/.exec(String(value || '').trim())
+  if (!match) return null
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] || '',
+  }
+}
+
+function compareVersions(a, b) {
+  const left = parseVersion(a)
+  const right = parseVersion(b)
+  if (!left || !right) return 0
+  for (const key of ['major', 'minor', 'patch']) {
+    if (left[key] !== right[key]) return left[key] - right[key]
+  }
+  if (left.prerelease === right.prerelease) return 0
+  if (!left.prerelease) return 1
+  if (!right.prerelease) return -1
+  return left.prerelease.localeCompare(right.prerelease, undefined, { numeric: true })
+}
 
 function clampInt(value, fallback, min, max) {
   const n = Number(value)
@@ -65,6 +106,81 @@ export function apply(ctx, config) {
   const pricing = resolvePricing(options.pricing)
   const chartDays = clampInt(options.chartDays, DEFAULT_CHART_DAYS, 2, 60)
   const maxSessions = clampInt(options.maxSessions, DEFAULT_MAX_SESSIONS, 1, 2000)
+
+  /** @type {{ at: number, data: Record<string, unknown> } | null} */
+  let updateCache = null
+  /** @type {Promise<Record<string, unknown>> | null} */
+  let updateInFlight = null
+
+  async function checkForUpdate(force) {
+    if (!force && updateCache && Date.now() - updateCache.at < UPDATE_TTL) {
+      return updateCache.data
+    }
+    if (updateInFlight) return updateInFlight
+    updateInFlight = (async () => {
+      if (typeof fetch !== 'function') {
+        throw new Error('This Harness runtime has no fetch implementation for the update check.')
+      }
+      const current = parseVersion(CURRENT_VERSION)
+      if (!current) {
+        throw new Error('The installed package version is not a semantic version.')
+      }
+      const init = {
+        headers: {
+          accept: 'application/vnd.github+json',
+          'user-agent': 'dsh-session-usage',
+          'x-github-api-version': '2022-11-28',
+        },
+      }
+      if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+        init.signal = AbortSignal.timeout(8000)
+      }
+      const response = await fetch(UPDATE_API, init)
+      if (!response.ok) throw new Error(`GitHub returned HTTP ${response.status}.`)
+      const release = await response.json()
+      const tag = typeof release?.tag_name === 'string' ? release.tag_name : ''
+      const latest = tag.replace(/^v/i, '')
+      if (!parseVersion(latest)) throw new Error('The latest GitHub release has no semantic version tag.')
+      const candidate = typeof release?.html_url === 'string' ? release.html_url : ''
+      const releaseUrl = candidate.startsWith('https://github.com/Cottins-Vanilla/dsh-session-usage/releases/')
+        ? candidate
+        : RELEASES_URL
+      const data = {
+        ok: true,
+        current: CURRENT_VERSION,
+        latest,
+        updateAvailable: compareVersions(latest, CURRENT_VERSION) > 0,
+        releaseUrl,
+        releaseName: typeof release?.name === 'string' ? release.name.slice(0, 120) : '',
+        publishedAt: typeof release?.published_at === 'string' ? release.published_at : '',
+        checkedAt: Date.now(),
+      }
+      updateCache = { at: Date.now(), data }
+      return data
+    })().finally(() => {
+      updateInFlight = null
+    })
+    return updateInFlight
+  }
+
+  async function handleUpdate(request) {
+    try {
+      let payload = {}
+      try {
+        const body = await request.json()
+        if (body && typeof body === 'object' && !Array.isArray(body)) payload = body
+      } catch {
+        payload = {}
+      }
+      return json(await checkForUpdate(payload.force === true))
+    } catch (error) {
+      return json({
+        ok: false,
+        current: CURRENT_VERSION,
+        error: { code: 'session-usage/update-check-failed', message: messageOf(error) },
+      })
+    }
+  }
 
   /** @type {Map<string, ReturnType<typeof createRecord>>} */
   const cache = new Map()
@@ -397,6 +513,12 @@ export function apply(ctx, config) {
       methods: ['POST'],
       requestBody: 'buffered',
       fetch: handle,
+    }))
+    connectionCtx.effect(() => register({
+      path: UPDATE_ROUTE,
+      methods: ['POST'],
+      requestBody: 'buffered',
+      fetch: handleUpdate,
     }))
   })
 }

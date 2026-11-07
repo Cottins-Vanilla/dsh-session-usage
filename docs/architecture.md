@@ -103,6 +103,25 @@ every conversation represented in the curve.
 The route is authenticated by the Harness Connection service and is same-origin.
 It has no side effects.
 
+### Update route
+
+`POST /api/session-usage/update`, also registered through
+`connection.fetch.register`, with an optional buffered body `{ "force": true }`.
+The Host reads the installed `package.json` version, fetches
+`https://api.github.com/repos/Cottins-Vanilla/dsh-session-usage/releases/latest`,
+compares the release tag with the installed version, and returns:
+
+```text
+ok, current, latest, updateAvailable
+releaseUrl, releaseName, publishedAt, checkedAt
+error: { code, message }       when ok is false
+```
+
+A successful result is cached for six hours; `force` bypasses the cache for an
+explicit button press. Only the release tag, name, URL, and published time are
+returned. The request is user-initiated, carries no session data, and its failure
+does not affect the usage query.
+
 ## Client half (`client.js`)
 
 ### Slots
@@ -147,8 +166,9 @@ It has no side effects.
   returns full prompts, tool results, attachments, or credentials. The one piece
   of message text it retains is a short fallback title (up to 120 characters)
   derived from the first user message when no `session/title` event exists.
-- The Client cannot read the session log directly; it only calls the Host route.
-- No third-party request is made by either half.
+- The Client cannot read the session log directly; it only calls the Host routes.
+- No third-party request is made by default. The optional update check makes one
+  Host-side request to the GitHub releases API when the user presses the button.
 - The plugin never writes session events or profile files.
 
 ## Failure modes
@@ -159,6 +179,7 @@ It has no side effects.
 | One cold session unreadable | That session is skipped; `warnings[]` counts it |
 | Invalid scope/session id | Empty current/project response or a diagnostic |
 | Client route unauthorized | Panel/chip show an error; no data written |
+| Update check offline or rate-limited | Header shows a non-blocking failure note; usage data stays usable |
 | Log format migration | `readSession()` failure is isolated per session |
 
 ## Performance notes

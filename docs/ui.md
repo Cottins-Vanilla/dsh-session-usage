@@ -27,7 +27,13 @@ screenshots, reviews, and accessibility checks.
 
 ## Dashboard anatomy
 
-1. **Header** — title, subtitle, loading indicator, refresh button.
+1. **Header** — title, subtitle, loading indicator, **检查更新 / Check for
+   updates**, and refresh.
+   - The update check is manual. It shows “已是最新版本 / Up to date”, a
+     non-blocking failure note, or an update banner.
+   - The banner names the installed and latest versions and offers **查看 Release
+     / View release** plus dismiss. It uses the GitHub release URL returned by the
+     Host.
 2. **Toolbar**
    - **统计范围 / Scope** — three labeled options. The label is a small caption
      above the control, not a button.

@@ -86,7 +86,8 @@ body:
 Session Usage adds a sidebar dashboard, a 用量 tab, a header chip, and a
 per-answer badge for price and token usage. It reads committed Session logs,
 estimates price from a configurable DeepSeek price table, and makes no
-third-party network calls.
+third-party network calls by default; the only optional one is a manual
+update check against the GitHub releases API.
 ```
 
 CI checks the manifest, repository age, formatting, and that the READMEs

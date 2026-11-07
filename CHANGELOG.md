@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.0] - 2026-11-07
+
+### Added
+
+- **检查更新 / Check for updates** button in the panel header. The Host reads the
+  installed version, fetches the latest GitHub release, compares the versions,
+  and returns the result. A newer release shows a banner with the current/latest
+  versions and a **View release** link.
+- The update result is cached for six hours; explicit clicks bypass the cache.
+  Failures are non-blocking and shown as a small header note.
+- English and Chinese strings for the update check and banner.
+
+### Changed
+
+- Privacy wording is now explicit: the plugin makes no third-party request by
+  default; only the user-initiated update check contacts `api.github.com`, and it
+  sends no session data.
+- Documented the update route, its bounded response, the manual-only check, and
+  the offline/rate-limit failure mode.
+
 ## [1.1.1] - 2026-11-07
 
 ### Fixed
@@ -96,7 +116,8 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.0
 [1.1.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.0
 [1.0.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.1

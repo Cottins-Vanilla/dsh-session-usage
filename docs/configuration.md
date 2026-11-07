@@ -100,6 +100,16 @@ the first preset and the default. A custom color is stored in the same key and
 survives a refresh. The Client catches storage errors, so a profile with
 `--no-webstorage` still works with in-memory defaults.
 
+## Update check
+
+The panel's **检查更新 / Check for updates** button calls the same-origin
+`POST /api/session-usage/update` route. The Host reads the installed
+`package.json` version and fetches the latest GitHub release tag from
+`api.github.com`; it compares the two and caches a successful result for six
+hours. The check is manual — there is no background polling and no config key
+for it. A failure is non-fatal and appears as a small header note; it never
+blocks the usage query. No session contents or identity are sent.
+
 ## Recommended starting points
 
 - Small laptop or a long history: `maxSessions: 150`, `chartDays: 7`.

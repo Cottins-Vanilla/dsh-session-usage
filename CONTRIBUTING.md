@@ -68,8 +68,10 @@ no profile state.
   second store; the Host cache is disposable.
 - **Stay read-only.** Do not append session events, rewrite profile files, or
   change user configuration.
-- **No third-party network calls.** The only request should remain the
-  same-origin Client-to-Host query.
+- **No third-party network calls by default.** The only routine request should
+  remain the same-origin Client-to-Host query. The one exception is the explicit
+  user-initiated update check to the GitHub releases API; it must stay manual,
+  bounded, and free of session data.
 - **Do not import Harness Client packages** such as
   `@deepseek-ai/dsh-client-ui-primitives` from `client.js`. Match the host look
   with CSS and the `--dsw-alias-*` theme tokens instead.

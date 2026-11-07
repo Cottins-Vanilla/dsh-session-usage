@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 1.1.x | ✅ |
+| 1.2.x | ✅ |
+| 1.1.x | ⚠️ upgrade recommended |
 | 1.0.x | ⚠️ upgrade recommended |
 | < 1.0 | ❌ |
 
@@ -40,9 +41,12 @@ Understanding the data flow makes reports easier to assess:
   turn numbers, working directories, and a short fallback title derived from the
   first user message. Prompts, tool output, attachments, and credentials are not
   returned to the Client.
-- **No external network.** The Client calls one same-origin, authenticated route:
-  `POST /api/session-usage/query`. The plugin does not contact the author or any
-  third party.
+- **No external network by default.** The Client's routine request is one
+  same-origin, authenticated route: `POST /api/session-usage/query`. Pressing
+  **Check for updates** makes one Host-side HTTPS request to
+  `api.github.com/repos/Cottins-Vanilla/dsh-session-usage/releases/latest`; the
+  result is cached for six hours. The plugin does not contact the author or send
+  session data to any third party.
 - **No writes.** The plugin does not append session events, edit the profile, or
   write files. The Client stores only its own preferences (selected metric, badge
   color, chart mode) in `localStorage`.

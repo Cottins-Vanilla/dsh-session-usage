@@ -95,6 +95,16 @@ window.__ModuleLoader__.load({
         'chip.error': '用量读取失败',
         'project.unknown': '未记录项目',
         'model.unknown': '未知模型',
+        'update.check': '检查更新',
+        'update.checking': '检查中…',
+        'update.hint': '检查更新会访问 GitHub API',
+        'update.available': '发现新版本',
+        'update.current': '当前',
+        'update.latest': '最新',
+        'update.open': '查看 Release',
+        'update.dismiss': '关闭',
+        'update.upToDate': '已是最新版本',
+        'update.failed': '检查更新失败',
       },
       en: {
         'panel.title': 'Session usage',
@@ -173,6 +183,16 @@ window.__ModuleLoader__.load({
         'chip.error': 'usage unavailable',
         'project.unknown': 'No project recorded',
         'model.unknown': 'unknown model',
+        'update.check': 'Check for updates',
+        'update.checking': 'Checking…',
+        'update.hint': 'Checking for updates contacts the GitHub API',
+        'update.available': 'Update available',
+        'update.current': 'Current',
+        'update.latest': 'Latest',
+        'update.open': 'View release',
+        'update.dismiss': 'Dismiss',
+        'update.upToDate': 'Up to date',
+        'update.failed': 'Update check failed',
       },
     }
 
@@ -267,6 +287,15 @@ window.__ModuleLoader__.load({
 .dsu-empty{display:flex;align-items:center;justify-content:center;min-height:120px;color:var(--dsw-alias-label-secondary);font-size:12px;text-align:center;padding:12px}
 .dsu-error{border:1px solid var(--dsw-alias-state-error-primary);border-radius:10px;padding:10px 12px;color:var(--dsw-alias-state-error-primary);font-size:12px;background:var(--dsw-alias-bg-layer-1);display:flex;align-items:center;justify-content:space-between;gap:12px}
 .dsu-error-text{min-width:0;word-break:break-word}
+.dsu-update{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;padding:10px 12px 10px 16px;background:var(--dsw-alias-bg-layer-2)}
+.dsu-update::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--dsw-alias-brand-primary)}
+.dsu-update-main{min-width:0}
+.dsu-update-title{font-size:12px;font-weight:600;color:var(--dsw-alias-brand-primary)}
+.dsu-update-sub{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}
+.dsu-update-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dsu-update-link{text-decoration:none}
+.dsu-update-ok{color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
+.dsu-update-error{color:var(--dsw-alias-state-error-primary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsu-foot{font-size:11px;color:var(--dsw-alias-label-secondary);display:flex;flex-wrap:wrap;gap:4px 12px}
 .dsu-spin{width:12px;height:12px;border-radius:50%;border:2px solid var(--dsw-alias-border-l2);border-top-color:var(--dsw-alias-brand-primary);animation:dsu-spin .8s linear infinite;display:inline-block;vertical-align:-2px;margin-right:6px}
 @keyframes dsu-spin{to{transform:rotate(360deg)}}
@@ -440,6 +469,30 @@ window.__ModuleLoader__.load({
       if (!body || body.ok !== true) {
         const message = body && body.error && body.error.message
         throw new Error(message || 'The usage endpoint failed.')
+      }
+      return body
+    }
+
+    async function checkForUpdate() {
+      const init = {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      }
+      if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+        init.signal = AbortSignal.timeout(12000)
+      }
+      const response = await fetch('api/session-usage/update', init)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      let body = null
+      try {
+        body = await response.json()
+      } catch {
+        throw new Error('The update endpoint returned an unreadable response.')
+      }
+      if (!body || body.ok !== true) {
+        const message = body && body.error && body.error.message
+        throw new Error(message || 'The update endpoint failed.')
       }
       return body
     }
@@ -690,6 +743,24 @@ window.__ModuleLoader__.load({
       },
         h('path', { d: 'M20 12a8 8 0 1 1-2.3-5.6' }),
         h('path', { d: 'M20 4v5h-5' }),
+      )
+    }
+
+    function UpdateIcon() {
+      return h('svg', {
+        viewBox: '0 0 24 24',
+        width: 13,
+        height: 13,
+        fill: 'none',
+        stroke: 'currentColor',
+        strokeWidth: 1.7,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+        'aria-hidden': true,
+      },
+        h('path', { d: 'M12 3v12' }),
+        h('path', { d: 'm7 10 5 5 5-5' }),
+        h('path', { d: 'M4 21h16' }),
       )
     }
 
@@ -1222,6 +1293,8 @@ window.__ModuleLoader__.load({
         const [metricId, setMetricId] = React.useState(readMetricPref)
         const [chartMode, setChartMode] = React.useState(() => (sessionId ? 'turnValue' : 'days'))
         const [openError, setOpenError] = React.useState('')
+        const [update, setUpdate] = React.useState({ checking: false, result: null, error: '' })
+        const [updateDismissed, setUpdateDismissed] = React.useState(false)
         const turnColor = useTurnColor()
         const effectiveScope = scope !== 'all' && !sessionId ? 'all' : scope
         const query = useQuery(ctx, effectiveScope, sessionId)
@@ -1274,6 +1347,17 @@ window.__ModuleLoader__.load({
           writeMetricPref(next)
         }
 
+        const runUpdateCheck = async () => {
+          setUpdate((previous) => ({ ...previous, checking: true, error: '' }))
+          try {
+            const result = await checkForUpdate()
+            setUpdate({ checking: false, result, error: '' })
+            setUpdateDismissed(false)
+          } catch (error) {
+            setUpdate({ checking: false, result: null, error: String(error?.message || error) })
+          }
+        }
+
         const open = (id) => {
           if (!openSession(ctx, id)) setOpenError(t('open.failed'))
           else setOpenError('')
@@ -1315,6 +1399,22 @@ window.__ModuleLoader__.load({
             query.loading && data
               ? h('span', { className: 'dsu-card-note' }, h('span', { className: 'dsu-spin' }), t('panel.loading'))
               : null,
+            update.error
+              ? h('span', { className: 'dsu-card-note dsu-update-error', title: update.error }, t('update.failed'))
+              : null,
+            update.result && !update.result.updateAvailable && !update.checking
+              ? h('span', { className: 'dsu-card-note dsu-update-ok' }, t('update.upToDate'))
+              : null,
+            h('button', {
+              type: 'button',
+              className: 'dsu-btn',
+              onClick: runUpdateCheck,
+              disabled: update.checking,
+              title: t('update.hint'),
+            },
+              h(UpdateIcon),
+              h('span', null, t(update.checking ? 'update.checking' : 'update.check')),
+            ),
             h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh },
               h(RefreshIcon),
               h('span', null, t('panel.refresh')),
@@ -1571,6 +1671,32 @@ window.__ModuleLoader__.load({
           )
           : null
 
+        const updateBanner = update.result && update.result.updateAvailable && !updateDismissed
+          ? h('div', { className: 'dsu-update', role: 'status' },
+            h('div', { className: 'dsu-update-main' },
+              h('div', { className: 'dsu-update-title' },
+                `${t('update.available')} · v${update.result.latest}`,
+              ),
+              h('div', { className: 'dsu-update-sub' },
+                `${t('update.current')} v${update.result.current} · ${t('update.latest')} v${update.result.latest}`,
+              ),
+            ),
+            h('div', { className: 'dsu-update-actions' },
+              h('a', {
+                className: 'dsu-btn dsu-update-link',
+                href: update.result.releaseUrl,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+              }, t('update.open')),
+              h('button', {
+                type: 'button',
+                className: 'dsu-btn',
+                onClick: () => setUpdateDismissed(true),
+              }, t('update.dismiss')),
+            ),
+          )
+          : null
+
         let body
         if (!data && query.loading) {
           body = h('div', { className: 'dsu-empty' }, h('span', { className: 'dsu-spin' }), t('panel.loading'))
@@ -1587,6 +1713,7 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
               )
               : null,
+            updateBanner,
             kpis,
             chartCard,
             listCard,
