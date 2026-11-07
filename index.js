@@ -44,28 +44,46 @@ function readPackageVersion() {
 
 const CURRENT_VERSION = readPackageVersion()
 
-function parseVersion(value) {
-  const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/.exec(String(value || '').trim())
+const SEMVER_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/
+
+export function parseVersion(value) {
+  const match = SEMVER_PATTERN.exec(String(value || '').trim())
   if (!match) return null
   return {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
-    prerelease: match[4] || '',
+    prerelease: match[4] ? match[4].split('.') : [],
+    build: match[5] ? match[5].split('.') : [],
   }
 }
 
-function compareVersions(a, b) {
+export function compareVersions(a, b) {
   const left = parseVersion(a)
   const right = parseVersion(b)
   if (!left || !right) return 0
   for (const key of ['major', 'minor', 'patch']) {
     if (left[key] !== right[key]) return left[key] - right[key]
   }
-  if (left.prerelease === right.prerelease) return 0
-  if (!left.prerelease) return 1
-  if (!right.prerelease) return -1
-  return left.prerelease.localeCompare(right.prerelease, undefined, { numeric: true })
+  const l = left.prerelease
+  const r = right.prerelease
+  if (l.length === 0 && r.length === 0) return 0
+  if (l.length === 0) return 1
+  if (r.length === 0) return -1
+  for (let index = 0; index < Math.max(l.length, r.length); index += 1) {
+    const x = l[index]
+    const y = r[index]
+    if (x === undefined) return -1
+    if (y === undefined) return 1
+    if (x === y) continue
+    const xNumeric = /^\d+$/.test(x)
+    const yNumeric = /^\d+$/.test(y)
+    if (xNumeric && yNumeric) return Number(x) - Number(y)
+    if (xNumeric) return -1
+    if (yNumeric) return 1
+    return x < y ? -1 : 1
+  }
+  return 0
 }
 
 function clampInt(value, fallback, min, max) {

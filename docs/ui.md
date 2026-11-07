@@ -53,7 +53,9 @@ screenshots, reviews, and accessibility checks.
    - Current scope: per-turn rows; clicking one opens the conversation (or
      switches the Usage tab back to Chat and lands on that turn).
    - Project/all scope: conversation rows with a value bar; click opens the
-     conversation.
+     conversation. The list shows 150 rows initially and exposes **Show more**
+     in 150-row increments, with a “Showing 150 / N” note, so every counted
+     conversation remains reachable.
 6. **Footer** — estimate disclaimer, current peak status, generated time, and a
    warning count if any session failed to load.
 
@@ -67,6 +69,14 @@ screenshots, reviews, and accessibility checks.
 
 If no conversation has been opened in the page, the first two options are
 disabled and a short hint is shown.
+
+## Header chip
+
+The header chip polls every 8 seconds. Each poll has a monotonic request id and
+its own AbortController; only the newest response may update the value or mark a
+failure. If the latest poll fails after a successful value, the chip keeps that
+value but appends **数据可能已过期 / may be stale** and explains the state in
+its title; a first-load failure still shows the ordinary error label.
 
 ## Chart behavior
 
@@ -83,7 +93,11 @@ disabled and a short hint is shown.
   series, sorted by value.
 - Clicking a per-turn chart point opens that conversation; inside the Usage tab
   it selects the Chat view and addresses that turn. The aggregate “other”
-  series is not clickable.
+  series is not clickable, and a click more than 24 chart units from every line
+  is treated as blank space and ignored.
+- Turn navigation is bound to its target session: a pending jump is cancelled
+  when the active session changes, and retries never touch a newer session's
+  turn rail.
 - Clicking a legend item hides or shows its series. Hidden series are dimmed in
   the legend; the Y scale reflows to the remaining series.
 - If every series is hidden, the chart shows axes without lines; the legend

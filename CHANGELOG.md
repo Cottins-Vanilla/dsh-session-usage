@@ -9,6 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.3] - 2026-11-08
+
+This release resolves the 11 findings in the 2026-11-08 source review plus the
+empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
+
+### Fixed
+
+- **F01 — revised call usage was added twice.** Usage is now tracked in one slot
+  per `(turn, step)`. A later `assistant/message`/`assistant/attempt` sample
+  replaces the previous contribution across session, day, model, and turn
+  buckets; `llm/retry-started` closes the slot so a real retry accumulates.
+  Increases, decreases, cross-day, and cross-model revisions are covered.
+- **F02 — live-to-cold transitions missed the persisted tail.** When a cached
+  live record is seen after its live session disappears, the Host reads the
+  snapshot once and folds only the missing tail, then marks `live=false`.
+  Concurrent final syncs share one promise; read failures leave the record live
+  for retry.
+- **F03 — a new turn reused a stale in-flight badge request.** `getTurnData()`
+  verifies `maxSeq` after the shared request and makes one fresh request when
+  the snapshot predates the requested turn. `TurnCost` no longer falls back to a
+  neighbouring turn when a known `turnHint` is absent.
+- **F04 — project scope was truncated by the global scan cap.** The project cwd
+  filter is applied before `maxSessions`; unrelated projects can no longer evict
+  the target project's eligible sessions.
+- **F05 — POSIX paths were lowercased.** Cwd identity keeps case on non-Windows
+  platforms and stays case-insensitive on Windows. `lib/path.js` makes the
+  platform rule testable.
+- **F06 — a failed chip poll still looked healthy.** The chip now appends a
+  “may be stale” marker and uses an explicit stale title after a failure while
+  retaining the last successful value.
+- **F07 — an older chip response could overwrite a newer one.** Each poll gets a
+  monotonic request id and its own AbortController; only the newest request may
+  apply data or mark failure.
+- **F08 — pending turn navigation could target another session.** Navigation
+  carries the target session, re-checks it before every retry, cancels timers on
+  session change, and cancels all pending navigation on plugin unload.
+- **F09 — aggregate/blank chart clicks opened a colored conversation.** Hit
+  testing includes the aggregate series; an aggregate hit does nothing, and
+  clicks more than 24 chart units from any line are ignored.
+- **F10 — the conversation list silently showed only 150 rows.** The list now
+  displays “Showing 150 / N” and a **Show more** button in 150-row increments,
+  so every counted conversation is reachable.
+- **F11 — SemVer parsing and prerelease ordering were incomplete.** The version
+  parser now validates the complete SemVer 2.0.0 grammar (rejecting trailing
+  garbage, leading zeroes, empty identifiers, and bad metadata) and compares
+  prerelease identifiers by the spec: numeric before non-numeric, numeric
+  numerically, ASCII otherwise, shorter set first, build ignored.
+- **R01 — empty `peakHours` silently restored defaults.** An explicit empty
+  array now means no peak windows; malformed ranges throw at startup.
+
+### Added
+
+- `tests/usage.test.mjs` now has 17 behavioral tests covering same-call
+  revisions, retry slots, live-to-cold tail sync, project-before-cap filtering,
+  path identity, SemVer ordering, empty/malformed peak hours, and the prior
+  concurrency/pricing regressions.
+- `lib/path.js` for platform-aware cwd identity.
+
+### Changed
+
+- Documentation now records the slot/retry rules, live-to-cold refresh, per-scope
+  `maxSessions` behavior, platform path identity, stale chip state, chart hit
+  rules, list expansion, SemVer requirements, and empty `peakHours` semantics.
+- `RELEASE_NOTES.md` and the release workflow now publish these detailed notes,
+  not only generated compare links.
+
 ## [1.2.2] - 2026-11-08
 
 ### Fixed
@@ -161,7 +227,8 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.3
 [1.2.2]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.0

@@ -38,6 +38,10 @@ if model starts with "deepseek" and isPeak(t):
   last assistant message.
 - A failed attempt followed by a successful retry therefore contributes both
   attempts' tokens, matching provider billing for the failed request.
+- A later sample for the same `(turn, step)` **replaces** the previous sample
+  (usage revisions); `llm/retry-started` closes that slot so the next attempt is
+  added. The previous contribution is removed from session, day, model, and turn
+  buckets before the replacement is added.
 
 ## Default table
 
@@ -72,6 +76,8 @@ mistyped Pro row from quietly pricing Pro at the fallback (Flash) rate.
 - **Off-peak:** all other hours, plus weekends (when `weekendValley` is true) and
   dates in `pricing.holidays`.
 - **Multiplier:** `pricing.peakMultiplier`, default `2`.
+- **Disabling peak:** set `pricing.peakHours: []`. An explicit empty array means
+  no peak windows; it does not restore the defaults. Invalid ranges throw.
 - **Scope:** the multiplier is applied only when the model id starts with
   `deepseek`; other providers use their rates unchanged.
 

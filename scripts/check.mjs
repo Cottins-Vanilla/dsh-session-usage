@@ -81,6 +81,7 @@ if (pkg) {
     'README.zh.md',
     'LICENSE',
     'CHANGELOG.md',
+    'RELEASE_NOTES.md',
     'scripts/check.mjs',
     'tests/usage.test.mjs',
   ]

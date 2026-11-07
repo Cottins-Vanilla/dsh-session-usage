@@ -249,6 +249,7 @@ dsh-session-usage/
 ├── docs/                    架构、配置、定价、发布
 ├── examples/                示例 profile patch
 ├── CHANGELOG.md
+├── RELEASE_NOTES.md         当前 GitHub Release 的详细说明
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
@@ -264,7 +265,7 @@ npm test          # 结构检查 + 计费行为测试
 npm run check     # 仅结构检查
 ```
 
-`npm test` 先运行 `scripts/check.mjs`（manifest、exports、语言元数据、SVG 大小、Client loader id、JavaScript 语法、临时文件），再运行 `tests/usage.test.mjs` 的 `node:test` 套件。行为测试会断言具体金额、峰谷价、失败尝试用量、流内 usage 回退、错误配置抛错和并发冷加载回归；改坏计价口径会让 CI 失败。
+`npm test` 先运行 `scripts/check.mjs`（manifest、exports、语言元数据、SVG 大小、Client loader id、JavaScript 语法、临时文件），再运行 `tests/usage.test.mjs` 的 17 项 `node:test` 套件。行为测试会断言具体金额、峰谷价、失败尝试用量、同调用 usage 修订、重试槽、流内 usage 回退、错误配置抛错、live→cold 尾部同步、项目先过滤再截断、路径身份、SemVer 排序和并发冷加载回归；改坏计价口径会让 CI 失败。
 
 本地预览时，把目录作为 bundle 安装（见上文）。Client 侧修改在 bundle 重载后刷新页面即可；Host
 侧修改需要切换插件或重启应用。
@@ -275,7 +276,8 @@ npm run check     # 仅结构检查
 - 价格是估算；内置的 2026 节假日表需要按年更新。其他供应商或新价格请覆盖
   `pricing.models` 与 `pricing.holidays`。
 - 历史很多时，第一次“全部对话”会稍慢，因为冷日志只读一次；后续增量更新。
-- “当前项目”按记录的 `cwd` 比较，不是完整的 workspace registry 映射。
+- “当前项目”按记录的 `cwd` 比较，Windows 不区分大小写、POSIX 区分；不是完整的
+  workspace registry 映射。
 - npm 包名 `dsh-session-usage` 已被另一个项目占用。本仓库以 GitHub/本地 bundle 形式分发；
   发布 npm 前请读 [docs/publishing.md](docs/publishing.md)。
 - 仓库不包含截图；上面的 UI 地图描述了每个入口。

@@ -37,10 +37,12 @@ are safe; model rate rows must be complete. Unknown fields are ignored.
 | Field | Type | Default | Meaning |
 | --- | --- | ---: | --- |
 | `chartDays` | integer | `14` | Daily points in the daily chart; clamped to `2..60` |
-| `maxSessions` | integer | `400` | Newest N sessions scanned for **All conversations**; clamped to `1..2000` |
+| `maxSessions` | integer | `400` | Newest N sessions scanned **within the selected scope**; clamped to `1..2000` |
 | `pricing` | object | see below | Price table and peak-window rules |
 
 Invalid numbers fall back to the default. Decimal values are truncated.
+For project scope the cwd filter is applied **before** `maxSessions`, so
+unrelated projects cannot crowd out the selected project's eligible sessions.
 
 ## Pricing fields
 
@@ -48,7 +50,7 @@ Invalid numbers fall back to the default. Decimal values are truncated.
 | --- | --- | ---: | --- |
 | `pricing.currency` | string | `CNY` | Three-letter currency code used by the Client symbol |
 | `pricing.peakMultiplier` | number | `2` | Multiplier applied during peak windows |
-| `pricing.peakHours` | array of `[start, end]` | `[[9,12],[14,18]]` | Beijing local hours; start inclusive, end exclusive |
+| `pricing.peakHours` | array of `[start, end]` | `[[9,12],[14,18]]` | Beijing local hours; start inclusive, end exclusive. An explicit `[]` disables peak pricing |
 | `pricing.weekendValley` | boolean | `true` | Bill Saturday/Sunday at the off-peak rate |
 | `pricing.holidays` | array of `YYYY-MM-DD` | 2026 Chinese public holidays | Days billed at the off-peak rate |
 | `pricing.models` | object | DeepSeek Flash/Pro table | Model-match → `{ hit, miss, out }` CNY per 1M tokens |
@@ -59,6 +61,14 @@ longest key first. For example, `deepseek-v4-flash` wins over `deepseek-flash`.
 Each model row and `pricing.fallback` must contain non-negative numeric `hit`,
 `miss`, and `out`; a malformed or partial row throws at plugin startup instead of
 being silently dropped. Top-level fields remain optional and merge with defaults.
+
+`pricing.peakHours` ranges must be integer `[start, end]` pairs with
+`0 <= start < end <= 24`; a malformed range throws at startup. An explicit empty
+array means **no peak windows**, not "use the defaults".
+
+Current-project identity follows the host filesystem: Windows compares paths
+case-insensitively, while POSIX keeps case. Backslashes are normalized to `/` and
+trailing separators are ignored.
 
 There is no separate cache-write rate: `cacheWriteTokens` is billed at the
 `miss` rate. This is correct for the current DeepSeek table, where cache writes

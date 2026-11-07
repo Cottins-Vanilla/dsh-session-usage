@@ -25,10 +25,11 @@ flowchart LR
 
 - `ctx.get('sessions').list()` provides live Session objects.
 - `ctx.get('sessionQuery').listSessions()` provides the complete logical corpus
-  as headers, newest first, capped by `maxSessions`.
-- Live sessions that are not in the persisted listing are appended, so a brand
-  new conversation still appears in **All conversations** before its first
-  flush.
+  as headers, newest first. The project cwd filter is applied before the
+  `maxSessions` cap, so the cap is per selected scope rather than global.
+- Live sessions that are not in the persisted listing are appended (and filtered
+  by the same cwd rule for project scope), so a brand new conversation still
+  appears in **All conversations** before its first flush.
 
 ### Folding
 
@@ -42,8 +43,9 @@ For each session, `lib/stats.js` walks committed events:
 | `turn/end` | Records the turn's closing sequence |
 | `step/start` | Counts steps, per session and per turn |
 | `request/header`, `request/context` | Records the current model/provider for later attempts |
-| `assistant/message` | Adds `usage` (or the last stream `usage` chunk) to session, model, day, and turn buckets; prices the message at its event time |
-| `assistant/attempt` | Adds the last stream `usage` chunk to session, model, day, and turn buckets, but not to the visible-message count |
+| `llm/retry-started` | Closes the current `(turn, step)` call slot so the next attempt accumulates rather than replaces |
+| `assistant/message` | Adds or replaces the current call sample: usage (or last stream usage) plus price in session, model, day, and turn buckets |
+| `assistant/attempt` | Adds or replaces the current call sample for the stream usage, without incrementing the visible-message count |
 
 Rules that matter:
 
@@ -53,10 +55,17 @@ Rules that matter:
 - **Live increments are deduplicated.** Every record stores `lastSeq`; folding a
   live session again skips events already seen. Folding is pure, so a cold read
   followed by live `ownEvents()` is safe.
+- **Same-call revisions replace.** A sample is keyed by `(turn, step)`. The next
+  sample for that slot subtracts the previous contribution from every bucket
+  before adding the revision; `llm/retry-started` clears the slot. This mirrors
+  the Harness token-meter's replace-versus-retry semantics.
 - **A cold record is folded at most once.** `ensureRecord()`/`ensureById()` share
   a per-session load promise, and `foldCold()` refuses to fold an already loaded
   record. Two concurrent **All conversations** requests therefore read one cold
   log once and produce one total, not two.
+- **Live-to-cold gets a final tail sync.** If a cached record is still `live` but
+  its live session disappears, one shared refresh reads persistence, folds only
+  events after `lastSeq`, updates `live=false`, and retries on failure.
 - **Failed attempts are billable.** An `assistant/attempt` has no
   `assistant/message`; its only token accounting is the last `usage` chunk in
   `data.stream`. Those tokens and their price are counted, while the visible
@@ -78,6 +87,8 @@ Rules that matter:
   and at most three sessions are read at a time.
 - `foldCold()` is guarded by `record.loaded`, so even a duplicate caller that
   already passed the load check cannot re-fold a completed snapshot.
+- A separate refresh map shares the live-to-cold tail sync; it preserves
+  `lastSeq`, folds only new persisted events, and sets `live=false`.
 - Live sessions are folded from `session.ownEvents()` on each query; `lastSeq`
   makes this incremental.
 - The cache is not persisted. Restarting the Host or reloading the plugin

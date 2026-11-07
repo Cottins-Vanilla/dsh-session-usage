@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { apply } from '../index.js'
+import { apply, compareVersions, parseVersion } from '../index.js'
 import { normalizeCwd } from '../lib/path.js'
-import { resolvePricing, priceUsage } from '../lib/pricing.js'
+import { isPeak, resolvePricing, priceUsage } from '../lib/pricing.js'
 import { createRecord, foldEvents, summarizeRecord } from '../lib/stats.js'
 
 // Saturday 08:00 Beijing = off-peak.
@@ -349,4 +349,33 @@ test('project scan filters before applying maxSessions', async () => {
   assert.equal(body.totals.tokens, 2_000_000)
   assert.equal(body.totals.cost, 2)
   assert.equal(body.warnings.length, 0)
+})
+
+test('SemVer parsing is complete and prerelease ordering follows the spec', () => {
+  assert.equal(parseVersion('1.2.3oops'), null)
+  assert.equal(parseVersion('1.02.3'), null)
+  assert.equal(parseVersion('1.2.3-'), null)
+  assert.equal(parseVersion('1.2.3-alpha..1'), null)
+  assert.equal(parseVersion('1.2.3-alpha.01'), null)
+  assert.equal(parseVersion('1.2.3+build.7').build.join('.'), 'build.7')
+  assert.ok(compareVersions('1.0.0-alpha.999', '1.0.0-alpha.1a') < 0)
+  assert.ok(compareVersions('1.0.0-alpha', '1.0.0-alpha.1') < 0)
+  assert.ok(compareVersions('1.0.0-alpha.1', '1.0.0-alpha.beta') < 0)
+  assert.ok(compareVersions('1.0.0-beta.2', '1.0.0-beta.11') < 0)
+  assert.equal(compareVersions('1.0.0-rc.1', '1.0.0-rc.1+build'), 0)
+  assert.ok(compareVersions('1.0.0-alpha', '1.0.0') < 0)
+})
+
+test('empty peakHours disables peak pricing; malformed ranges throw', () => {
+  const offPeakOnly = resolvePricing({ peakHours: [] })
+  assert.equal(isPeak(PEAK, offPeakOnly), false)
+  assert.equal(priceUsage(offPeakOnly, { input: 1_000_000 }, 'deepseek-flash', PEAK).cost, 1)
+  assert.throws(
+    () => resolvePricing({ peakHours: [[10, 9]] }),
+    /Invalid pricing\.peakHours\[0\]/,
+  )
+  assert.throws(
+    () => resolvePricing({ peakHours: [[9, 12], ['x', 18]] }),
+    /Invalid pricing\.peakHours\[1\]/,
+  )
 })

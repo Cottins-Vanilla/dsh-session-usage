@@ -27,5 +27,5 @@ jobs:
           fi
           gh release create "$tag" \
             --title "Session usage ${tag#v}" \
-            --generate-notes \
+            --notes-file RELEASE_NOTES.md \
             --verify-tag

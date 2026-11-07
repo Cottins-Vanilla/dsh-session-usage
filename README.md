@@ -302,6 +302,7 @@ dsh-session-usage/
 ├── docs/                    Architecture, configuration, pricing, publishing
 ├── examples/                Example profile patch
 ├── CHANGELOG.md
+├── RELEASE_NOTES.md         Detailed body for the current GitHub release
 ├── CONTRIBUTING.md
 ├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
@@ -319,10 +320,12 @@ npm run check     # structural checks only
 
 `npm test` runs `scripts/check.mjs` (manifest, exports, locale metadata, SVG
 size, Client loader id, JavaScript syntax, temporary files) and then the
-`node:test` suite in `tests/usage.test.mjs`. The behavioral suite asserts exact
-prices, peak/off-peak rates, failed-attempt accounting, stream fallback,
-pricing-config errors, and the concurrent cold-load regression; a change that
-silently changes the amount fails CI.
+17-test `node:test` suite in `tests/usage.test.mjs`. The behavioral suite asserts
+exact prices, peak/off-peak rates, failed-attempt accounting, same-call usage
+revisions, retry slots, stream fallback, pricing-config errors, live-to-cold tail
+sync, project-before-cap filtering, path identity, SemVer ordering, and the
+concurrent cold-load regression; a change that silently changes the amount fails
+CI.
 
 To preview a local checkout, install its directory as a bundle (see above).
 Client-only edits are picked up by a page refresh after the bundle reloads;
@@ -336,7 +339,8 @@ Host-side edits need the plugin to be toggled or the app restarted.
   new prices.
 - The first **All conversations** query can take a moment on a large history
   because cold logs are read once; later queries are incremental.
-- "Current project" compares recorded `cwd` values; it is not a full workspace
+- "Current project" compares recorded `cwd` values using platform case rules
+  (insensitive on Windows, sensitive on POSIX); it is not a full workspace
   registry mapping.
 - The npm package name `dsh-session-usage` is occupied by an unrelated project.
   This repository is distributed as a GitHub/local bundle. See
