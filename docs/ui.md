@@ -51,7 +51,7 @@ screenshots, reviews, and accessibility checks.
      visibility toggle.
 5. **Detail card**
    - Current scope: per-turn rows; clicking one opens the conversation (or
-     switches the Usage tab back to Chat).
+     switches the Usage tab back to Chat and lands on that turn).
    - Project/all scope: conversation rows with a value bar; click opens the
      conversation.
 6. **Footer** — estimate disclaimer, current peak status, generated time, and a

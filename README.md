@@ -59,7 +59,8 @@ End of a completed answer
   - Hover any point to inspect the value of every visible series.
 - **Click-through** — every conversation row opens that conversation, and
   clicking a per-turn chart point or a turn detail row switches from the Usage
-  tab back to Chat. The current-conversation view also lists each turn.
+  tab back to Chat and lands on that turn. The current-conversation view also
+  lists each turn.
 - **Turn cost badges** — after each answer, the badge shows that turn's price
   first, then the conversation total up to that answer. The default is white; the
   panel's **标记颜色 / Badge color** control offers white, color presets, and a

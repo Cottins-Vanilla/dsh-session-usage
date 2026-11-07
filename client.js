@@ -394,6 +394,75 @@ window.__ModuleLoader__.load({
       return appearance.turnColor
     }
 
+    // The Chat View does not consume `openView`'s focus payload. Reproduce the
+    // native turn-rail navigation after the Usage View switches back to Chat.
+    let chatTurnNavigation = 0
+
+    function cancelChatTurnNavigation() {
+      chatTurnNavigation += 1
+    }
+
+    function turnRailScroller(nav) {
+      for (const element of nav.querySelectorAll('*')) {
+        const overflow = getComputedStyle(element).overflowY
+        if ((overflow === 'auto' || overflow === 'scroll') && element.scrollHeight > element.clientHeight + 1) {
+          return element
+        }
+      }
+      return null
+    }
+
+    function turnMarkFor(nav, turn) {
+      const numbered = Array.from(nav.querySelectorAll('button[data-index]')).find((button) => {
+        const label = button.getAttribute('aria-label') || ''
+        return new RegExp(`(^|\\D)${turn}(\\D|$)`).test(label)
+      })
+      if (numbered) return numbered
+      return nav.querySelector(`button[data-index="${turn - 1}"]`)
+    }
+
+    function focusChatTurn(value) {
+      const turn = Number(value)
+      if (!Number.isSafeInteger(turn) || turn < 1 || typeof document === 'undefined') return
+      const token = ++chatTurnNavigation
+      let attempts = 0
+
+      const attempt = () => {
+        if (token !== chatTurnNavigation) return
+        const roots = Array.from(document.querySelectorAll('[data-conversation-scroll]'))
+          .filter((element) => element.getClientRects().length > 0)
+        const root = roots[roots.length - 1] || document
+        let navs = Array.from(root.querySelectorAll('nav')).filter((nav) => nav.querySelector('button[data-index]'))
+        if (!navs.length && root !== document) {
+          navs = Array.from(document.querySelectorAll('nav')).filter((nav) => nav.querySelector('button[data-index]'))
+        }
+        for (const nav of navs) {
+          const mark = turnMarkFor(nav, turn)
+          if (mark) {
+            mark.click()
+            return
+          }
+          const scroller = turnRailScroller(nav)
+          if (scroller) scroller.scrollTop = Math.max(0, (turn - 1) * 10 - 30)
+        }
+
+        const target = root.querySelector(`[data-chat-turn="${turn}"]`)
+        if (target) {
+          target.scrollIntoView({ block: 'start', behavior: 'smooth' })
+          return
+        }
+
+        if (attempts === 24) {
+          const transcript = root === document ? document.querySelector('[data-conversation-scroll]') : root
+          if (transcript) transcript.scrollTop = 0
+        }
+        attempts += 1
+        if (attempts < 60) window.setTimeout(attempt, 50)
+      }
+
+      window.setTimeout(attempt, 40)
+    }
+
     function tint(hex, alpha) {
       const value = normalizeColor(hex).slice(1)
       const r = Number.parseInt(value.slice(0, 2), 16)
@@ -1368,10 +1437,13 @@ window.__ModuleLoader__.load({
           // Inside the 用量 View tab, the session is already selected, so
           // openSession is a no-op. Select the Chat View explicitly instead.
           if (typeof props.openView === 'function' && id === sessionId) {
-            props.openView('chat', turn === undefined || turn === null ? '' : String(turn))
+            props.openView('chat')
             setOpenError('')
+            if (turn === undefined || turn === null || turn === '') cancelChatTurnNavigation()
+            else focusChatTurn(turn)
             return
           }
+          cancelChatTurnNavigation()
           open(id)
         }
 

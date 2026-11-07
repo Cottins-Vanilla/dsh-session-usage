@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.1] - 2026-11-08
+
+### Fixed
+
+- Clicking a turn detail row or a per-turn chart point in the Usage View now
+  lands on that turn instead of merely switching back to Chat at the last turn.
+  `openView('chat', turn)` only selected the Chat View because Chat does not
+  consume the focus payload; the client now activates the native turn-rail mark
+  after the switch and falls back to scrolling the transcript.
+- Opening the Usage View's **Open conversation** action without a turn still
+  switches to Chat without leaving a stale pending turn navigation behind.
+
 ## [1.2.0] - 2026-11-07
 
 ### Added
@@ -116,7 +128,8 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.0
 [1.1.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.0
