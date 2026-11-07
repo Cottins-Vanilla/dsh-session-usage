@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22.19.0', '24']
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Run repository checks
+        run: npm test
+
+      - name: Syntax check with details
+        run: |
+          node --check index.js
+          node --check client.js
+          node --check lib/pricing.js
+          node --check lib/stats.js
+
+      - name: Verify npm package contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e "const p=require('./pack.json'); const files=p[0].files.map(f=>f.path); for (const f of ['client.js','index.js','lib/pricing.js','lib/stats.js','cordis.patch.yml','icon.svg']) { if (!files.includes(f)) { console.error('missing from package: '+f); process.exit(1) } } console.log('package contains '+files.length+' files')"
+
+      - name: Upload package manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pack-json-node-${{ matrix.node }}
+          path: pack.json
+          if-no-files-found: ignore
+          retention-days: 3

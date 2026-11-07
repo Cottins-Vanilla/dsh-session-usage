@@ -1,5 +1,23 @@
+# Dependencies and build output
 node_modules/
 coverage/
+dist/
+pack.json
+*.tgz
+
+# Temporary and editor files
+.tmp-*
+*.tmp
+*.bak
 *.log
+*.local
 .DS_Store
 Thumbs.db
+.idea/
+.vscode/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.npmrc

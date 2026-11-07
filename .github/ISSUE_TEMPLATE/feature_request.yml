@@ -1,0 +1,61 @@
+name: Feature request
+description: Propose a focused improvement.
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before requesting
+      options:
+        - label: I searched existing issues and discussions first.
+          required: true
+        - label: This request is about this plugin, not DeepSeek Harness itself.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Chart or metrics
+        - Scopes or navigation
+        - Turn price badge or color
+        - Pricing table
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: The proposal can stay read-only and avoid third-party network calls.
+          required: false

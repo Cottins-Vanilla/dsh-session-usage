@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Cottins-Vanilla/dsh-session-usage#readme
+    about: Installation, scopes, chart modes, pricing, and configuration.
+  - name: Security report
+    url: https://github.com/Cottins-Vanilla/dsh-session-usage/security/advisories/new
+    about: Report a vulnerability privately; do not open a public issue.

@@ -1,0 +1,22 @@
+# Example: tune Session usage from a profile's patch layer.
+#
+# Put this override in the profile's `cordis.patch.yml` (the profile that
+# installs this bundle), not in the bundle's own `cordis.patch.yml`.
+# A matching override replaces the row's complete config; the plugin merges its
+# defaults underneath.
+- id: session-usage
+  config:
+    chartDays: 21
+    maxSessions: 300
+    pricing:
+      currency: CNY
+      peakMultiplier: 2
+      weekendValley: true
+      models:
+        deepseek-flash: { hit: 0.02, miss: 1, out: 4 }
+        deepseek-v4-pro: { hit: 0.15, miss: 4.5, out: 13.5 }
+      fallback: { hit: 0.02, miss: 1, out: 4 }
+      holidays:
+        - '2026-01-01'
+        - '2026-02-15'
+        - '2026-10-01'

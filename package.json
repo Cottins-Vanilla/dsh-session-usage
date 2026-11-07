@@ -2,14 +2,15 @@
   "name": "dsh-session-usage",
   "version": "1.0.0",
   "private": true,
-  "description": "Price and token usage dashboard for every DeepSeek Harness conversation, with a per-turn curve and one-click conversation jumps.",
+  "description": "Session usage dashboard for DeepSeek Harness: price, tokens, per-turn curves, and per-answer cost badges.",
   "type": "module",
   "icon": "./icon.svg",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",
@@ -18,8 +19,41 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "docs/*.md",
+    "examples/*.yml",
+    "scripts/*.mjs"
   ],
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "test": "node scripts/check.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "cordis",
+    "token-usage",
+    "cost",
+    "dashboard",
+    "observability"
+  ],
+  "author": "Cottins-Vanilla",
+  "license": "MIT",
+  "homepage": "https://github.com/Cottins-Vanilla/dsh-session-usage#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cottins-Vanilla/dsh-session-usage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Cottins-Vanilla/dsh-session-usage/issues"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -33,6 +67,6 @@
         "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
-  },
-  "license": "MIT"
+  }
 }
+
