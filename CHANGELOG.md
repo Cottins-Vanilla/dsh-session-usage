@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.1.1] - 2026-11-07
+
+### Fixed
+
+- Turn detail rows and per-turn chart points now navigate when the Usage View
+  tab is active. The session is already selected there, so `openSession` was a
+  no-op; the Usage view now selects the Chat View explicitly and passes the
+  clicked turn as the focus.
+- Chart points are clickable in the per-turn value and per-turn cumulative
+  modes; the aggregate “other conversations” series is not clickable.
+- Conversation rows still open their session, and the sidebar dashboard keeps
+  its `openSession` fallback outside a Conversation View.
+
+### Changed
+
+- Added a click hint to the chart and documented the click-through behavior in
+  both READMEs and the UI map.
+
 ## [1.1.0] - 2026-11-07
 
 ### Added
@@ -78,7 +96,8 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.0
 [1.0.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.0

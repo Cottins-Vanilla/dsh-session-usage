@@ -44,7 +44,8 @@ screenshots, reviews, and accessibility checks.
    - Legend in By-turn modes: color, title, project (all scope), total, and a
      visibility toggle.
 5. **Detail card**
-   - Current scope: per-turn rows.
+   - Current scope: per-turn rows; clicking one opens the conversation (or
+     switches the Usage tab back to Chat).
    - Project/all scope: conversation rows with a value bar; click opens the
      conversation.
 6. **Footer** — estimate disclaimer, current peak status, generated time, and a
@@ -74,6 +75,9 @@ disabled and a short hint is shown.
   By-turn mode).
 - Hover snaps to the nearest turn or day. The tooltip lists up to six visible
   series, sorted by value.
+- Clicking a per-turn chart point opens that conversation; inside the Usage tab
+  it selects the Chat view and addresses that turn. The aggregate “other”
+  series is not clickable.
 - Clicking a legend item hides or shows its series. Hidden series are dimmed in
   the legend; the Y scale reflows to the remaining series.
 - If every series is hidden, the chart shows axes without lines; the legend

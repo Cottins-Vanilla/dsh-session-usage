@@ -61,6 +61,7 @@ window.__ModuleLoader__.load({
         'chart.modeTurnValue': '每轮值',
         'chart.turnValue': '每轮值',
         'chart.perTurn': '单轮消耗，不累计',
+        'chart.clickHint': '点击曲线跳转到对应对话或轮次',
         'chart.otherPrefix': '其他',
         'chart.legendHint': '点击图例可隐藏或显示对应对话',
         'chart.seriesNote': '最多显示 8 个对话',
@@ -138,6 +139,7 @@ window.__ModuleLoader__.load({
         'chart.modeTurnValue': 'Per-turn',
         'chart.turnValue': 'Per-turn value',
         'chart.perTurn': 'Single turn, not cumulative',
+        'chart.clickHint': 'Click the curve to open the conversation or turn',
         'chart.otherPrefix': 'Other',
         'chart.legendHint': 'Click a legend item to hide or show that conversation',
         'chart.seriesNote': 'up to 8 conversations',
@@ -735,7 +737,7 @@ window.__ModuleLoader__.load({
       return { values, total }
     }
 
-    function UsageChart({ mode, daily, turns, metric, symbol, t, showProject }) {
+    function UsageChart({ mode, daily, turns, metric, symbol, t, showProject, onPick }) {
       const width = 760
       const height = 252
       const padLeft = 58
@@ -822,16 +824,24 @@ window.__ModuleLoader__.load({
       }
       const yOf = (value) => padTop + (1 - value / max) * (baseY - padTop)
 
-      function onMove(event) {
+      function pointerOf(event) {
         const rect = event.currentTarget.getBoundingClientRect()
-        if (!rect.width) return
-        const pointer = ((event.clientX - rect.left) / rect.width) * width
+        if (!rect.width || !rect.height) return null
+        return {
+          x: ((event.clientX - rect.left) / rect.width) * width,
+          y: ((event.clientY - rect.top) / rect.height) * height,
+        }
+      }
+
+      function onMove(event) {
+        const pointer = pointerOf(event)
+        if (!pointer) return
         if (mode === 'days') {
           if (dailyPoints.length === 0) return
           let best = 0
           let distance = Infinity
           for (let index = 0; index < dailyPoints.length; index += 1) {
-            const current = Math.abs(xDay(index) - pointer)
+            const current = Math.abs(xDay(index) - pointer.x)
             if (current < distance) {
               distance = current
               best = index
@@ -840,8 +850,35 @@ window.__ModuleLoader__.load({
           setHover(best)
           return
         }
-        const ratio = (pointer - padLeft) / Math.max(1, span)
+        const ratio = (pointer.x - padLeft) / Math.max(1, span)
         setHover(Math.max(1, Math.min(maxTurn, Math.round(1 + ratio * (maxTurn - 1)))))
+      }
+
+      function onClick(event) {
+        if (typeof onPick !== 'function' || mode === 'days') return
+        const pointer = pointerOf(event)
+        if (!pointer) return
+        const ratio = (pointer.x - padLeft) / Math.max(1, span)
+        const turn = Math.max(1, Math.min(maxTurn, Math.round(1 + ratio * (maxTurn - 1))))
+        let best = null
+        let bestDistance = Infinity
+        for (const item of visible) {
+          if (item.other) continue
+          let value
+          if (mode === 'turnValue') {
+            const entry = item.series.values.find((candidate) => candidate.turn === turn)
+            if (!entry) continue
+            value = entry.value
+          } else {
+            value = valueAt(item, turn)
+          }
+          const distance = Math.abs(yOf(value) - pointer.y)
+          if (distance < bestDistance) {
+            bestDistance = distance
+            best = { sessionId: item.id, turn }
+          }
+        }
+        if (best) onPick(best)
       }
 
       const safeHover = mode === 'days'
@@ -937,7 +974,12 @@ window.__ModuleLoader__.load({
           'aria-label': t(mode === 'days' ? 'chart.days' : (mode === 'turnValue' ? 'chart.turnValue' : 'chart.turns')),
           onMouseMove: onMove,
           onMouseLeave: () => setHover(-1),
+          onClick,
+          style: typeof onPick === 'function' && mode !== 'days' ? { cursor: 'pointer' } : undefined,
         },
+          typeof onPick === 'function' && mode !== 'days'
+            ? h('title', null, t('chart.clickHint'))
+            : null,
           [0, 0.25, 0.5, 0.75, 1].map((fraction) => {
             const y = yOf(max * fraction)
             return h('g', { key: `tick-${fraction}` },
@@ -1237,6 +1279,20 @@ window.__ModuleLoader__.load({
           else setOpenError('')
         }
 
+        const openConversation = (id, turn) => {
+          if (!id) return
+          // Inside the 用量 View tab, the session is already selected, so
+          // openSession is a no-op. Select the Chat View explicitly instead.
+          if (typeof props.openView === 'function' && id === sessionId) {
+            props.openView('chat', turn === undefined || turn === null ? '' : String(turn))
+            setOpenError('')
+            return
+          }
+          open(id)
+        }
+
+        const openTurn = (turn) => openConversation(sessionId, turn)
+
         const rows = React.useMemo(() => {
           const list = Array.isArray(data?.sessions)
             ? data.sessions.filter((session) => (Number(session.tokens) || 0) > 0 || (Number(session.cost) || 0) > 0)
@@ -1395,6 +1451,9 @@ window.__ModuleLoader__.load({
               symbol,
               t,
               showProject: effectiveScope === 'all',
+              onPick: chartMode === 'days'
+                ? undefined
+                : (pick) => openConversation(pick.sessionId, pick.turn),
             })
             : h(Empty, { text: t('chart.empty') }),
         )
@@ -1409,7 +1468,7 @@ window.__ModuleLoader__.load({
                   ? h('button', {
                     type: 'button',
                     className: 'dsu-btn',
-                    onClick: () => open(sessionId),
+                    onClick: () => openTurn(points.length > 0 ? points[points.length - 1].turn : ''),
                   }, t('list.open'))
                   : null,
               ),
@@ -1423,7 +1482,7 @@ window.__ModuleLoader__.load({
                     key: `turn-${point.turn}-${index}`,
                     type: 'button',
                     className: 'dsu-row',
-                    onClick: () => sessionId && open(sessionId),
+                    onClick: () => openTurn(point.turn),
                   },
                     h('div', { style: { minWidth: 0 } },
                       h('div', { className: 'dsu-row-title' }, point.label),
@@ -1474,7 +1533,7 @@ window.__ModuleLoader__.load({
                     type: 'button',
                     className: `dsu-row${session.id === sessionId ? ' is-current' : ''}`,
                     title: t('list.open'),
-                    onClick: () => open(session.id),
+                    onClick: () => openConversation(session.id),
                   },
                     h('div', { style: { minWidth: 0 } },
                       h('div', { className: 'dsu-row-title' },
@@ -1556,7 +1615,10 @@ window.__ModuleLoader__.load({
         React.useEffect(() => {
           if (sessionId) setCurrentSession({ sessionId })
         }, [sessionId])
-        return h(Panel, { viewSessionId: sessionId })
+        return h(Panel, {
+          viewSessionId: sessionId,
+          openView: props && typeof props.openView === 'function' ? props.openView : null,
+        })
       }
     }
 
