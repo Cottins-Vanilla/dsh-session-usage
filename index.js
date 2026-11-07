@@ -10,6 +10,7 @@
  */
 
 import { readFileSync } from 'node:fs'
+import { normalizeCwd } from './lib/path.js'
 import { isPeakNow, resolvePricing } from './lib/pricing.js'
 import {
   aggregateDays,
@@ -86,13 +87,6 @@ function json(body) {
       'cache-control': 'no-store',
     },
   })
-}
-
-function normalizeCwd(value) {
-  return String(value || '')
-    .replace(/\\/g, '/')
-    .replace(/\/+$/, '')
-    .toLowerCase()
 }
 
 function projectLabel(cwd) {
@@ -325,18 +319,20 @@ export function apply(ctx, config) {
     return coldLoad(id, { id }, session)
   }
 
-  async function readAll(liveMap) {
+  async function readAll(liveMap, onlyCwd = '') {
     const query = sessionQuery()
     if (!query || typeof query.listSessions !== 'function') {
       throw new Error('The session query service is unavailable, so the session list cannot be read.')
     }
     const listed = await query.listSessions()
     const headers = (Array.isArray(listed) ? listed : [])
-      .slice(0, maxSessions)
       .map((entry) => entry.header)
+      .filter((header) => !onlyCwd || normalizeCwd(header?.cwd) === onlyCwd)
+      .slice(0, maxSessions)
     const known = new Set(headers.map((header) => header.id))
     for (const session of liveMap.values()) {
-      if (session?.header && !known.has(session.id)) {
+      if (session?.header && !known.has(session.id)
+        && (!onlyCwd || normalizeCwd(session.header.cwd) === onlyCwd)) {
         headers.push(session.header)
         known.add(session.id)
       }
@@ -498,8 +494,8 @@ export function apply(ctx, config) {
           warnings: [],
         }
       }
-      const listed = await readAll(liveMap)
       const cwd = normalizeCwd(current.cwd)
+      const listed = await readAll(liveMap, cwd)
       let records = listed.records.filter((record) => normalizeCwd(record.cwd) === cwd)
       if (!records.some((record) => record.id === current.id)) records = [current, ...records]
       records = records.filter(hasUsage)

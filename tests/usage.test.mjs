@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { apply } from '../index.js'
+import { normalizeCwd } from '../lib/path.js'
 import { resolvePricing, priceUsage } from '../lib/pricing.js'
 import { createRecord, foldEvents, summarizeRecord } from '../lib/stats.js'
 
@@ -297,4 +298,55 @@ test('live-to-cold transition folds the persisted tail exactly once', async () =
   assert.equal(cached.totals.tokens, 2_000_000)
   assert.equal(cached.totals.cost, 2)
   assert.equal(reads, 1)
+})
+
+test('case sensitivity follows the host filesystem semantics', () => {
+  assert.notEqual(normalizeCwd('/work/Foo', 'linux'), normalizeCwd('/work/foo', 'linux'))
+  assert.equal(normalizeCwd('/work/Foo', 'linux'), '/work/Foo')
+  assert.equal(normalizeCwd('C:\\Work\\Foo\\', 'win32'), normalizeCwd('c:/work/foo', 'win32'))
+})
+
+test('project scan filters before applying maxSessions', async () => {
+  const headers = [
+    { id: 'b0', cwd: 'E:/project-b', createdAt: 1 },
+    { id: 'b1', cwd: 'E:/project-b', createdAt: 2 },
+    { id: 'a0', cwd: 'E:/project-a', createdAt: 3 },
+    { id: 'a1', cwd: 'E:/project-a', createdAt: 4 },
+  ]
+  const byId = new Map(headers.map((header) => [header.id, header]))
+  const routes = new Map()
+  const ctx = {
+    get(name) {
+      if (name === 'sessions') return { list: () => [] }
+      if (name === 'sessionQuery') {
+        return {
+          listSessions: async () => headers.map((header) => ({ header })),
+          readSession: async (id) => ({
+            session: byId.get(id),
+            inheritedEventCount: 0,
+            events: [messageEvent(1, usage(1_000_000))],
+          }),
+        }
+      }
+      return undefined
+    },
+    inject(names, callback) {
+      if (!names.includes('connection')) return
+      const connectionCtx = {
+        get: (name) => name === 'connection'
+          ? { fetch: { register: (options) => { routes.set(options.path, options) } } }
+          : undefined,
+        effect: (fn) => fn(),
+      }
+      callback(connectionCtx)
+    },
+  }
+  apply(ctx, { maxSessions: 2 })
+  const handler = routes.get('/api/session-usage/query').fetch
+  const response = await handler({ json: async () => ({ scope: 'project', sessionId: 'a0' }) })
+  const body = await response.json()
+  assert.equal(body.totals.sessions, 2)
+  assert.equal(body.totals.tokens, 2_000_000)
+  assert.equal(body.totals.cost, 2)
+  assert.equal(body.warnings.length, 0)
 })

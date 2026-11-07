@@ -93,6 +93,8 @@ window.__ModuleLoader__.load({
         'error.retry': '重试',
         'chip.title': '当前对话用量，点击查看统计',
         'chip.error': '用量读取失败',
+        'chip.stale': '数据可能已过期',
+        'chip.staleTitle': '最近一次刷新失败，显示的是上次成功的数据',
         'project.unknown': '未记录项目',
         'model.unknown': '未知模型',
         'update.check': '检查更新',
@@ -181,6 +183,8 @@ window.__ModuleLoader__.load({
         'error.retry': 'Retry',
         'chip.title': 'Current conversation usage; click for details',
         'chip.error': 'usage unavailable',
+        'chip.stale': 'may be stale',
+        'chip.staleTitle': 'The last refresh failed; showing the last successful value',
         'project.unknown': 'No project recorded',
         'model.unknown': 'unknown model',
         'update.check': 'Check for updates',
@@ -1289,11 +1293,15 @@ window.__ModuleLoader__.load({
           if (!sessionId) return undefined
           setCurrentSession({ sessionId })
           let alive = true
-          const controller = new AbortController()
+          let latestRequest = 0
+          let controller = null
           const load = () => {
+            if (controller) controller.abort()
+            controller = new AbortController()
+            const requestId = ++latestRequest
             queryUsage({ scope: 'current', sessionId }, controller.signal)
               .then((data) => {
-                if (!alive) return
+                if (!alive || requestId !== latestRequest) return
                 setSummary(data.session || data.totals || null)
                 setCurrency(data.currency || 'CNY')
                 setFailed(false)
@@ -1304,7 +1312,7 @@ window.__ModuleLoader__.load({
                 })
               })
               .catch((error) => {
-                if (!alive || error?.name === 'AbortError') return
+                if (!alive || requestId !== latestRequest || error?.name === 'AbortError') return
                 setFailed(true)
               })
           }
@@ -1313,20 +1321,22 @@ window.__ModuleLoader__.load({
           return () => {
             alive = false
             window.clearInterval(timer)
-            controller.abort()
+            if (controller) controller.abort()
           }
         }, [sessionId])
 
         if (!sessionId || (!summary && !failed)) return null
 
+        const stale = failed && !!summary
         const label = summary
-          ? `${money(summary.cost, symbolOf(currency))} · ${compact(summary.tokens)} ${t('unit.tokens')}`
+          ? `${money(summary.cost, symbolOf(currency))} · ${compact(summary.tokens)} ${t('unit.tokens')}${stale ? ` · ${t('chip.stale')}` : ''}`
           : t('chip.error')
+        const title = stale ? t('chip.staleTitle') : t('chip.title')
 
         return h('button', {
           type: 'button',
-          title: t('chip.title'),
-          'aria-label': t('chip.title'),
+          title,
+          'aria-label': title,
           onClick: () => openPanel(ctx),
           style: {
             display: 'inline-flex',
@@ -1337,7 +1347,7 @@ window.__ModuleLoader__.load({
             border: '1px solid var(--dsw-alias-border-l1)',
             borderRadius: 999,
             background: 'transparent',
-            color: 'var(--dsw-alias-label-secondary)',
+            color: stale ? 'var(--dsw-alias-state-error-primary)' : 'var(--dsw-alias-label-secondary)',
             font: 'inherit',
             fontSize: 11.5,
             fontVariantNumeric: 'tabular-nums',
