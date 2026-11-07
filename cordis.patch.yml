@@ -1,0 +1,5 @@
+# Bundle patch: one Host/Client pair for the session usage dashboard.
+# Tune the row with `config:` when overriding it in the profile's patch.
+- insert:
+    - id: session-usage
+      name: dsh-session-usage
