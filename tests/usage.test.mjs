@@ -51,6 +51,10 @@ function requestHeader(seq, model = 'deepseek-flash', time = OFF_PEAK) {
   }
 }
 
+function retryStarted(seq, turn = 1, step = 1, time = OFF_PEAK) {
+  return { seq, time, type: 'llm/retry-started', data: { turn, step } }
+}
+
 function recordFor(events, pricing = resolvePricing()) {
   const record = createRecord({ id: 's1', cwd: 'E:/demo', createdAt: 1 })
   foldEvents(record, events, pricing)
@@ -94,11 +98,12 @@ test('valid model override is used at the overridden price', () => {
   assert.equal(priced.cost, 2)
 })
 
-test('failed attempt stream usage is counted once alongside the successful message', () => {
+test('failed attempt stream usage is counted once alongside the successful retry', () => {
   const { record, summary } = recordFor([
     requestHeader(1),
     attemptEvent(2, usage(1_000_000)),
-    messageEvent(3, usage(1_000_000)),
+    retryStarted(3),
+    messageEvent(4, usage(1_000_000)),
   ])
 
   assert.equal(summary.tokens, 2_000_000)
@@ -109,6 +114,41 @@ test('failed attempt stream usage is counted once alongside the successful messa
   assert.equal(record.models['deepseek-flash'].total, 2_000_000)
   assert.equal(record.days['2026-11-07'].cost, 2)
   assert.equal(record.days['2026-11-07'].messages, 1)
+})
+
+test('same turn/step usage revision replaces, not adds', () => {
+  const { record, summary } = recordFor([
+    messageEvent(1, usage(1_000_000)),
+    messageEvent(2, usage(1_500_000)),
+  ])
+  assert.equal(summary.tokens, 1_500_000)
+  assert.equal(summary.cost, 1.5)
+  assert.equal(summary.messages, 1)
+  assert.equal(record.turns[0].usage.total, 1_500_000)
+})
+
+test('usage revision can decrease and still replaces', () => {
+  const { summary } = recordFor([
+    messageEvent(1, usage(1_500_000)),
+    messageEvent(2, usage(1_000_000)),
+  ])
+  assert.equal(summary.tokens, 1_000_000)
+  assert.equal(summary.cost, 1)
+  assert.equal(summary.messages, 1)
+})
+
+test('same-call revision reverses the old day and model buckets', () => {
+  const { record, summary } = recordFor([
+    messageEvent(1, usage(1_000_000), OFF_PEAK, 'deepseek-flash'),
+    messageEvent(2, usage(1_500_000), PEAK, 'deepseek-v4-pro'),
+  ])
+  assert.equal(summary.tokens, 1_500_000)
+  assert.equal(summary.cost, 13.5)
+  assert.equal(summary.messages, 1)
+  assert.equal(record.days['2026-11-07'].total, 0)
+  assert.equal(record.days['2026-11-06'].cost, 13.5)
+  assert.equal(record.models['deepseek-flash'].total, 0)
+  assert.equal(record.models['deepseek-v4-pro'].total, 1_500_000)
 })
 
 test('attempt usage uses the model from the preceding request header', () => {
@@ -193,4 +233,68 @@ test('concurrent All conversations requests fold one cold session once', async (
   const third = await (await handler(request)).json()
   assert.equal(third.totals.tokens, 1_000_000)
   assert.equal(third.totals.cost, 1)
+})
+
+test('live-to-cold transition folds the persisted tail exactly once', async () => {
+  let reads = 0
+  let live = true
+  const header = { id: 's1', cwd: 'E:/demo', createdAt: 1 }
+  const first = messageEvent(1, usage(1_000_000))
+  const tail = messageEvent(2, usage(1_000_000))
+  tail.data.turn = 2
+  tail.data.step = 1
+  const liveSession = {
+    id: 's1',
+    header,
+    inheritedEventCount: 0,
+    ownEvents: () => [first],
+  }
+  const routes = new Map()
+  const ctx = {
+    get(name) {
+      if (name === 'sessions') return { list: () => (live ? [liveSession] : []) }
+      if (name === 'sessionQuery') {
+        return {
+          listSessions: async () => [{ header }],
+          readSession: async () => {
+            reads += 1
+            return { session: header, inheritedEventCount: 0, events: [first, tail] }
+          },
+        }
+      }
+      return undefined
+    },
+    inject(names, callback) {
+      if (!names.includes('connection')) return
+      const connectionCtx = {
+        get: (name) => name === 'connection'
+          ? { fetch: { register: (options) => { routes.set(options.path, options) } } }
+          : undefined,
+        effect: (fn) => fn(),
+      }
+      callback(connectionCtx)
+    },
+  }
+  apply(ctx, {})
+  const handler = routes.get('/api/session-usage/query').fetch
+  const request = { json: async () => ({ scope: 'all' }) }
+
+  const whileLive = await (await handler(request)).json()
+  assert.equal(whileLive.totals.tokens, 1_000_000)
+  assert.equal(whileLive.totals.cost, 1)
+  assert.equal(whileLive.sessions[0].live, true)
+  assert.equal(reads, 0)
+
+  live = false
+  const after = await (await handler(request)).json()
+  assert.equal(after.totals.tokens, 2_000_000)
+  assert.equal(after.totals.cost, 2)
+  assert.equal(after.sessions[0].live, false)
+  assert.equal(reads, 1)
+  assert.equal(after.session, null)
+
+  const cached = await (await handler(request)).json()
+  assert.equal(cached.totals.tokens, 2_000_000)
+  assert.equal(cached.totals.cost, 2)
+  assert.equal(reads, 1)
 })

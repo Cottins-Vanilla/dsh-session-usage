@@ -623,11 +623,17 @@ window.__ModuleLoader__.load({
     }
 
     function getTurnData(sessionId, seq) {
+      const requested = Number(seq) || 0
       const cached = sharedUsage.get(sessionId)
-      if (cached?.data && Number(cached.maxSeq) >= Number(seq || 0)) {
-        return Promise.resolve(cached.data)
-      }
-      return loadSessionUsage(sessionId, true)
+      const stale = !cached?.data || Number(cached.maxSeq) < requested
+      return loadSessionUsage(sessionId, stale)
+        .then((data) => {
+          if (Number(data?.maxSeq) >= requested) return data
+          // A request that started before this turn cannot satisfy it; wait for
+          // that shared promise, then make one fresh request.
+          return loadSessionUsage(sessionId, true)
+        })
+        .then((data) => (Number(data?.maxSeq) >= requested ? data : null))
     }
 
     function money(value, symbol) {
@@ -1846,23 +1852,33 @@ window.__ModuleLoader__.load({
           getTurnData(sessionId, seq)
             .then((data) => {
               if (!alive) return
+              if (!data) {
+                setState({ turn: null, total: 0, currency: 'CNY' })
+                return
+              }
               const series = data && data.chart && data.chart.turns ? data.chart.turns.series : null
               const list = series && series[0] && Array.isArray(series[0].points) ? series[0].points : []
               let match = turnHint > 0
                 ? list.find((point) => Number(point.turn) === turnHint) || null
                 : null
-              if (!match) {
+              if (!match && turnHint <= 0) {
                 for (const point of list) {
                   const pointSeq = Number(point.seq) || 0
                   if (pointSeq <= seq && (!match || pointSeq >= (Number(match.seq) || 0))) match = point
                 }
               }
-              if (!match && seq <= 0 && list.length > 0) match = list[list.length - 1]
+              if (!match && turnHint <= 0 && seq <= 0 && list.length > 0) match = list[list.length - 1]
+              if (!match) {
+                // The requested turn is known but absent from this snapshot.
+                // Do not fall back to a neighbouring turn's amount.
+                setState({ turn: null, total: 0, currency: (data && data.currency) || 'CNY' })
+                return
+              }
               const ordered = [...list].sort((a, b) => (Number(a.turn) || 0) - (Number(b.turn) || 0))
               let total = 0
               for (const point of ordered) {
                 total += Number(point.cost) || 0
-                if (match && point.turn === match.turn) break
+                if (point.turn === match.turn) break
               }
               setState({ turn: match, total, currency: (data && data.currency) || 'CNY' })
             })

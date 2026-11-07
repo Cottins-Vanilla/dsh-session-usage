@@ -188,6 +188,8 @@ export function apply(ctx, config) {
   const inflight = new Map()
   /** @type {Map<string, Promise<ReturnType<typeof createRecord>>>} */
   const loading = new Map()
+  /** @type {Map<string, Promise<ReturnType<typeof createRecord>>>} */
+  const refreshing = new Map()
 
   const sessionQuery = () => ctx.get('sessionQuery')
 
@@ -267,6 +269,27 @@ export function apply(ctx, config) {
     return pending
   }
 
+  /** Fold the persisted tail after a live session disappears, without re-reading old events. */
+  function refreshCold(record, id) {
+    let pending = refreshing.get(id)
+    if (!pending) {
+      pending = (async () => {
+        const snapshot = await readCold(id)
+        const inherited = Math.max(0, Number(snapshot?.inheritedEventCount) || 0)
+        if (inherited > record.inherited) record.inherited = inherited
+        // Deliberately keep lastSeq: existing samples are already counted, and
+        // only the persisted tail is missing.
+        foldEvents(record, snapshot?.events, pricing)
+        record.loaded = true
+        record.live = false
+        return record
+      })().finally(() => {
+        if (refreshing.get(id) === pending) refreshing.delete(id)
+      })
+      refreshing.set(id, pending)
+    }
+    return pending
+  }
   /** Ensure a record for a listed header, reading and folding the cold log only once. */
   async function ensureRecord(header, liveMap) {
     const id = header.id
@@ -274,6 +297,7 @@ export function apply(ctx, config) {
     const existing = cache.get(id)
     if (existing) {
       if (session) markLive(existing, session)
+      else if (existing.live && existing.loaded) return refreshCold(existing, id)
       if (existing.loaded) return existing
     } else if (session) {
       const record = createRecord(session.header ?? header, session.inheritedEventCount ?? 0)
@@ -290,6 +314,7 @@ export function apply(ctx, config) {
     const existing = cache.get(id)
     if (existing) {
       if (session) markLive(existing, session)
+      else if (existing.live && existing.loaded) return refreshCold(existing, id)
       if (existing.loaded) return existing
     } else if (session) {
       const record = createRecord(session.header, session.inheritedEventCount)
