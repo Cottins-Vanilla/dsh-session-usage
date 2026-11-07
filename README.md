@@ -25,9 +25,9 @@ tokens.
     The current conversation's view lists each turn.
 - **Turn price badge** — after every completed answer, the conversation shows a
   badge with the conversation's total price up to that answer and that turn's
-  price. It defaults to an eye-catching amber and the color can be changed from
-  the panel's **标记颜色 / Badge color** control (presets or a custom color
-  picker). The choice is remembered in local storage.
+  price. It defaults to white and the color can be changed from the panel's
+  **标记颜色 / Badge color** control (white plus color presets, or a custom
+  color picker). The choice is remembered in local storage.
 - Subagent sessions are included in the totals and marked in the list, because
   their model calls are billed too.
 

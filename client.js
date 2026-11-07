@@ -303,11 +303,11 @@ window.__ModuleLoader__.load({
       return currentStore
     }
 
-    // Turn-badge accent: one shared preference, defaulting to an eye-catching
-    // amber, changeable from the usage panel.
+    // Turn-badge accent: one shared preference, defaulting to white; changeable
+    // from the usage panel.
     const TURN_COLOR_KEY = 'dsh-session-usage.turnColor'
-    const DEFAULT_TURN_COLOR = '#F08C00'
-    const TURN_COLOR_PRESETS = ['#F08C00', '#E03131', '#4C6EF5', '#2F9E44', '#9C36B5', '#0C8599']
+    const DEFAULT_TURN_COLOR = '#FFFFFF'
+    const TURN_COLOR_PRESETS = ['#FFFFFF', '#F08C00', '#E03131', '#4C6EF5', '#2F9E44', '#9C36B5', '#0C8599']
     const appearance = { turnColor: DEFAULT_TURN_COLOR }
     const appearanceListeners = new Set()
 
@@ -1581,6 +1581,27 @@ window.__ModuleLoader__.load({
         const total = state.total
         if (!(total > 0 || (Number(turn.cost) || 0) > 0 || (Number(turn.tokens) || 0) > 0)) return null
         const symbol = symbolOf(state.currency)
+        const isWhite = normalizeColor(color) === '#FFFFFF'
+        const border = isWhite ? '1px solid var(--dsw-alias-border-l2)' : `1px solid ${tint(color, 0.5)}`
+        const background = isWhite ? '#FFFFFF' : tint(color, 0.16)
+        const textColor = isWhite ? '#1F2328' : 'var(--dsw-alias-label-primary)'
+        const secondaryColor = isWhite ? 'rgba(31, 35, 40, 0.62)' : 'var(--dsw-alias-label-secondary)'
+        const dotStyle = isWhite
+          ? {
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: '#FFFFFF',
+            boxShadow: '0 0 0 1px var(--dsw-alias-border-l2)',
+            flex: 'none',
+          }
+          : {
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            background: color,
+            flex: 'none',
+          }
         return h('button', {
           type: 'button',
           title: `${t('turn.tooltip')} · ${compact(turn.tokens)} ${t('unit.tokens')}`,
@@ -1595,10 +1616,10 @@ window.__ModuleLoader__.load({
             gap: 6,
             maxWidth: '100%',
             padding: '2px 9px',
-            border: `1px solid ${tint(color, 0.5)}`,
+            border,
             borderRadius: 999,
-            background: tint(color, 0.16),
-            color: 'var(--dsw-alias-label-primary)',
+            background,
+            color: textColor,
             font: 'inherit',
             fontSize: 11.5,
             fontVariantNumeric: 'tabular-nums',
@@ -1608,18 +1629,10 @@ window.__ModuleLoader__.load({
             textOverflow: 'ellipsis',
           },
         },
-          h('span', {
-            style: {
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: color,
-              flex: 'none',
-            },
-          }),
+          h('span', { style: dotStyle }),
           h('span', null, `${t('turn.label')} ${money(total, symbol)}`),
-          h('span', { style: { color: 'var(--dsw-alias-label-secondary)' } }, '·'),
-          h('span', { style: { color: 'var(--dsw-alias-label-secondary)' } },
+          h('span', { style: { color: secondaryColor } }, '·'),
+          h('span', { style: { color: secondaryColor } },
             `${t('turn.turnLabel')} ${money(turn.cost, symbol)}`,
           ),
         )
