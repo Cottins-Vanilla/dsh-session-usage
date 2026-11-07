@@ -81,3 +81,7 @@ dsh plugin --profile desktop add https://github.com/Cottins-Vanilla/dsh-session-
 Refresh the page after the bundle reloads. Existing settings are unchanged;
 malformed pricing or peak-hour configuration now fails loudly so it can be
 corrected.
+
+---
+
+**Full Changelog**: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.2...v1.2.3
