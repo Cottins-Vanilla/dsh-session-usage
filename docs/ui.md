@@ -12,7 +12,7 @@ screenshots, reviews, and accessibility checks.
 │ 上下文洞察            │  │  ┌──────────────────────────────────────────┐  │
 │ 会话用量              │  │  │  Conversation rows …                     │  │
 │                      │  │  │                                          │  │
-│                      │  │  │  ● 当前对话 ¥1.2345 · 本轮 ¥0.1234        │  │
+│                      │  │  │  ● 本轮 ¥0.1234 · 当前对话 ¥1.2345        │  │
 │                      │  │  └──────────────────────────────────────────┘  │
 └──────────────────────┘  └────────────────────────────────────────────────┘
 ```
@@ -23,7 +23,7 @@ screenshots, reviews, and accessibility checks.
 | Dashboard | `main` key `session-usage` | root | KPIs, chart, list, footer |
 | Usage tab | `conversation.view` id `usage` | session | Same dashboard, current session prefilled |
 | Header chip | `conversation.session.header.utilities` | session | Current price and tokens |
-| Turn badge | `conversation.chat.turnTail` | session | Conversation total and this turn's price |
+| Turn badge | `conversation.chat.turnTail` | session | This turn's price first, then the conversation total |
 
 ## Dashboard anatomy
 
@@ -75,9 +75,11 @@ disabled and a short hint is shown.
 ## Turn badge
 
 ```text
-● 当前对话 ¥1.2345 · 本轮 ¥0.1234
+● 本轮 ¥0.1234 · 当前对话 ¥1.2345
 ```
 
+- The turn price comes first and uses the primary text color; the conversation
+  total follows in the secondary color.
 - White background and dark text by default; other accents use a tinted
   background with the accent dot and border.
 - Clicking opens the dashboard for that conversation.

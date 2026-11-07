@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.0.1] - 2026-11-07
+
+### Changed
+
+- The conversation-page turn badge now shows **this turn's price first**, then
+  the current conversation's total through that turn. The turn value uses the
+  primary text color and the conversation total follows in the secondary color.
+- README, the Chinese README, and the UI map now document the new order.
+
 ## [1.0.0] - 2026-11-07
 
 ### Added
@@ -53,5 +62,6 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.0

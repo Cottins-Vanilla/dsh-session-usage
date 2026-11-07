@@ -48,16 +48,16 @@ Do not commit a token, `.npmrc`, or a generated tarball.
 The project has no build step. A source tag is the release.
 
 ```sh
-git tag -a v1.0.0 -m "Session usage 1.0.0"
+git tag -a v1.0.1 -m "Session usage 1.0.1"
 git push origin main --tags
 ```
 
 On GitHub:
 
 1. Open **Releases → Draft a new release**.
-2. Choose tag `v1.0.0`.
-3. Title: `Session usage 1.0.0`.
-4. Copy the `[1.0.0]` section from `CHANGELOG.md`.
+2. Choose tag `v1.0.1`.
+3. Title: `Session usage 1.0.1`.
+4. Copy the `[1.0.1]` section from `CHANGELOG.md`.
 5. Attach no binary; GitHub's source archive is enough.
 6. Mark it **Latest**.
 

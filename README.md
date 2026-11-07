@@ -26,7 +26,7 @@ the end of every answer.
 | **Usage panel** | Sidebar → **会话用量 / Session usage** | The full dashboard: KPIs, daily and per-turn curves, conversation list |
 | **Usage tab** | Conversation View tabs → **用量 / Usage** | The same dashboard, scoped to the open conversation |
 | **Session header chip** | Right side of the conversation header | Current conversation price and total tokens; click to open the panel |
-| **Turn price badge** | After every completed answer | `当前对话 ¥… · 本轮 ¥…` with a white default and a configurable accent |
+| **Turn price badge** | After every completed answer | `本轮 ¥… · 当前对话 ¥…` — this turn's price first, then the conversation total, with a white default and a configurable accent |
 
 ```text
 Sidebar
@@ -37,7 +37,7 @@ Conversation header
   └─ ¥0.1234 · 12.3k tokens        ← header chip
 
 End of a completed answer
-  └─ 当前对话 ¥1.2345 · 本轮 ¥0.1234   ← turn badge
+  └─ 本轮 ¥0.1234 · 当前对话 ¥1.2345   ← turn badge
 ```
 
 ## Features
@@ -55,8 +55,8 @@ End of a completed answer
   - Hover any point to inspect the cumulative value of every visible series.
 - **Click-through** — every conversation row opens that conversation; the
   current-conversation view also lists each turn.
-- **Turn cost badges** — after each answer, the badge shows the conversation
-  total up to that answer and that turn's price. The default is white; the
+- **Turn cost badges** — after each answer, the badge shows that turn's price
+  first, then the conversation total up to that answer. The default is white; the
   panel's **标记颜色 / Badge color** control offers white, color presets, and a
   custom color picker. The choice is stored locally.
 - **Live enough** — the panel refreshes every 15 seconds, the header chip every
@@ -138,11 +138,11 @@ chart card.
 Every completed turn renders a small badge in the chat:
 
 ```text
-● 当前对话 ¥1.2345 · 本轮 ¥0.1234
+● 本轮 ¥0.1234 · 当前对话 ¥1.2345
 ```
 
-- The first value is the conversation total through that turn; the second is
-  that turn alone.
+- The first value is that turn's price; the second is the conversation total
+  through that turn.
 - The default is a solid white pill with dark text, readable in light and dark
   themes.
 - Change the accent in the panel's **标记颜色 / Badge color** row. Presets include

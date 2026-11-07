@@ -1630,10 +1630,10 @@ window.__ModuleLoader__.load({
           },
         },
           h('span', { style: dotStyle }),
-          h('span', null, `${t('turn.label')} ${money(total, symbol)}`),
+          h('span', null, `${t('turn.turnLabel')} ${money(turn.cost, symbol)}`),
           h('span', { style: { color: secondaryColor } }, '·'),
           h('span', { style: { color: secondaryColor } },
-            `${t('turn.turnLabel')} ${money(turn.cost, symbol)}`,
+            `${t('turn.label')} ${money(total, symbol)}`,
           ),
         )
       }
