@@ -106,6 +106,13 @@ Use **Plugins → Session usage → Remove** in the Web UI, or:
 dsh plugin --profile desktop remove dsh-session-usage
 ```
 
+### Marketplace listing
+
+Direct installation works now. Listing in the in-app market requires a pull
+request to the curated `awesome-dsh-plugin` catalog; see
+[docs/marketplace.md](docs/marketplace.md) for the ready-to-submit entry, the
+required `dsh-plugin` topic, and the one-day repository-age gate.
+
 ## Usage
 
 ### Scope

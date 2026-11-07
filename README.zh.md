@@ -93,6 +93,12 @@ Web UI 的 **Plugins → Session usage → Remove**，或：
 dsh plugin --profile desktop remove dsh-session-usage
 ```
 
+### 上架插件市场
+
+直接安装现在就可以用。要出现在 Harness 的应用内市场 / Discover，需要向
+`awesome-dsh-plugin` 精选目录提 PR；提交文件、`dsh-plugin` topic 和「仓库满 1 天」门槛见
+[docs/marketplace.md](docs/marketplace.md)。
+
 ## 使用
 
 ### 统计范围
