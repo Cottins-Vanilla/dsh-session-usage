@@ -75,6 +75,8 @@ window.__ModuleLoader__.load({
         'view.label': '用量',
         'list.title': '对话明细',
         'list.note': '按当前指标排序，点击打开对话',
+        'list.showing': '显示',
+        'list.more': '显示更多',
         'list.empty': '没有可显示的对话',
         'list.untitled': '未命名对话',
         'list.subagent': '子代理',
@@ -165,6 +167,8 @@ window.__ModuleLoader__.load({
         'view.label': 'Usage',
         'list.title': 'Conversations',
         'list.note': 'Sorted by the selected metric; click to open',
+        'list.showing': 'Showing',
+        'list.more': 'Show more',
         'list.empty': 'No conversations to show',
         'list.untitled': 'Untitled conversation',
         'list.subagent': 'subagent',
@@ -278,6 +282,7 @@ window.__ModuleLoader__.load({
 .dsu-tip b{font-variant-numeric:tabular-nums}
 .dsu-tip-label{color:var(--dsw-alias-label-secondary)}
 .dsu-list{display:flex;flex-direction:column;gap:2px}
+.dsu-more{display:flex;justify-content:center;padding:8px 0 2px}
 .dsu-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(70px,140px) 108px;gap:12px;align-items:center;width:100%;padding:9px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dsu-row:hover{background:var(--dsw-alias-bg-layer-2);border-color:var(--dsw-alias-border-l1)}
 .dsu-row.is-current{background:var(--dsw-alias-bg-layer-2)}
@@ -312,6 +317,7 @@ window.__ModuleLoader__.load({
     function setCurrentSession(patch) {
       let changed = false
       if (patch.sessionId !== undefined && patch.sessionId !== currentStore.sessionId) {
+        cancelChatTurnNavigation()
         currentStore.sessionId = patch.sessionId
         // A different conversation must not inherit the previous title or cwd.
         currentStore.title = ''
@@ -401,9 +407,21 @@ window.__ModuleLoader__.load({
     // The Chat View does not consume `openView`'s focus payload. Reproduce the
     // native turn-rail navigation after the Usage View switches back to Chat.
     let chatTurnNavigation = 0
+    const chatTurnTimers = new Set()
 
     function cancelChatTurnNavigation() {
       chatTurnNavigation += 1
+      for (const timer of chatTurnTimers) window.clearTimeout(timer)
+      chatTurnTimers.clear()
+    }
+
+    function scheduleChatTurn(attempt, delay) {
+      const timer = window.setTimeout(() => {
+        chatTurnTimers.delete(timer)
+        attempt()
+      }, delay)
+      chatTurnTimers.add(timer)
+      return timer
     }
 
     function turnRailScroller(nav) {
@@ -425,14 +443,18 @@ window.__ModuleLoader__.load({
       return nav.querySelector(`button[data-index="${turn - 1}"]`)
     }
 
-    function focusChatTurn(value) {
+    function focusChatTurn(value, sessionId) {
       const turn = Number(value)
       if (!Number.isSafeInteger(turn) || turn < 1 || typeof document === 'undefined') return
+      const targetSession = String(sessionId || '')
+      if (targetSession && currentStore.sessionId && currentStore.sessionId !== targetSession) return
+      cancelChatTurnNavigation()
       const token = ++chatTurnNavigation
       let attempts = 0
 
       const attempt = () => {
         if (token !== chatTurnNavigation) return
+        if (targetSession && currentStore.sessionId && currentStore.sessionId !== targetSession) return
         const roots = Array.from(document.querySelectorAll('[data-conversation-scroll]'))
           .filter((element) => element.getClientRects().length > 0)
         const root = roots[roots.length - 1] || document
@@ -461,10 +483,10 @@ window.__ModuleLoader__.load({
           if (transcript) transcript.scrollTop = 0
         }
         attempts += 1
-        if (attempts < 60) window.setTimeout(attempt, 50)
+        if (attempts < 60) scheduleChatTurn(attempt, 50)
       }
 
-      window.setTimeout(attempt, 40)
+      scheduleChatTurn(attempt, 40)
     }
 
     function tint(hex, alpha) {
@@ -1013,7 +1035,6 @@ window.__ModuleLoader__.load({
         let best = null
         let bestDistance = Infinity
         for (const item of visible) {
-          if (item.other) continue
           let value
           if (mode === 'turnValue') {
             const entry = item.series.values.find((candidate) => candidate.turn === turn)
@@ -1025,10 +1046,13 @@ window.__ModuleLoader__.load({
           const distance = Math.abs(yOf(value) - pointer.y)
           if (distance < bestDistance) {
             bestDistance = distance
-            best = { sessionId: item.id, turn }
+            best = { item, turn }
           }
         }
-        if (best) onPick(best)
+        // The aggregate "other conversations" series is intentionally not
+        // clickable, and a click far from every line is not a hit.
+        if (!best || best.item.other || bestDistance > 24) return
+        onPick({ sessionId: best.item.id, turn })
       }
 
       const safeHover = mode === 'days'
@@ -1380,6 +1404,7 @@ window.__ModuleLoader__.load({
         const [openError, setOpenError] = React.useState('')
         const [update, setUpdate] = React.useState({ checking: false, result: null, error: '' })
         const [updateDismissed, setUpdateDismissed] = React.useState(false)
+        const [listLimit, setListLimit] = React.useState(150)
         const turnColor = useTurnColor()
         const effectiveScope = scope !== 'all' && !sessionId ? 'all' : scope
         const query = useQuery(ctx, effectiveScope, sessionId)
@@ -1422,6 +1447,10 @@ window.__ModuleLoader__.load({
           setChartMode(effectiveScope === 'current' ? 'turnValue' : 'days')
         }, [effectiveScope])
 
+        React.useEffect(() => {
+          setListLimit(150)
+        }, [effectiveScope])
+
         const chooseScope = (next) => {
           setScope(next)
           setOpenError('')
@@ -1456,7 +1485,7 @@ window.__ModuleLoader__.load({
             props.openView('chat')
             setOpenError('')
             if (turn === undefined || turn === null || turn === '') cancelChatTurnNavigation()
-            else focusChatTurn(turn)
+            else focusChatTurn(turn, id)
             return
           }
           cancelChatTurnNavigation()
@@ -1700,11 +1729,16 @@ window.__ModuleLoader__.load({
                 t('list.title'),
                 h('span', { className: 'dsu-card-note', style: { marginLeft: 8, fontWeight: 400 } }, String(rows.length)),
               ),
-              h('div', { className: 'dsu-card-note' }, t('list.note')),
+              h('div', { className: 'dsu-card-note' },
+                rows.length > listLimit
+                  ? `${t('list.showing')} ${listLimit} / ${rows.length}`
+                  : t('list.note'),
+              ),
             ),
             rows.length > 0
-              ? h('div', { className: 'dsu-list' },
-                rows.slice(0, 150).map((session) => {
+              ? h(React.Fragment, null,
+                h('div', { className: 'dsu-list' },
+                  rows.slice(0, listLimit).map((session) => {
                   const value = metricValue(session, metric)
                   const model = session.models && session.models[0] ? session.models[0].model : ''
                   const sub = [
@@ -1744,6 +1778,16 @@ window.__ModuleLoader__.load({
                     ),
                   )
                 }),
+                ),
+                rows.length > listLimit
+                  ? h('div', { className: 'dsu-more' },
+                    h('button', {
+                      type: 'button',
+                      className: 'dsu-btn',
+                      onClick: () => setListLimit((value) => value + 150),
+                    }, `${t('list.more')} (${rows.length - listLimit})`),
+                  )
+                  : null,
               )
               : h(Empty, { text: t('list.empty') }),
           )
@@ -1966,6 +2010,7 @@ window.__ModuleLoader__.load({
       inject: ['slots', 'locale'],
       apply(ctx) {
         ctx.effect(() => registerLocale(ctx))
+        ctx.effect(() => () => cancelChatTurnNavigation())
         const Icon = createIcon(ctx)
         const Chip = createChip(ctx)
         const Panel = createPanel(ctx)
