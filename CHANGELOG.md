@@ -9,6 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.2] - 2026-11-08
+
+### Fixed
+
+- **Concurrent cold loads no longer double count.** Two simultaneous
+  **All conversations** requests now share one per-session load/fold promise;
+  `foldCold()` also refuses an already loaded record. Previously both callers
+  folded the same snapshot and the inflated total persisted in the cache.
+- **Failed and retried attempts are now billable.** `assistant/attempt` has no
+  `assistant/message`; its token accounting is the last `usage` chunk in
+  `data.stream`. Those tokens and their price are counted without incrementing
+  the visible-message count. The model comes from `request/header` /
+  `request/context` or the previous message.
+- **`assistant/message` falls back to stream usage** when `data.usage` is absent.
+- **Malformed pricing overrides now fail loudly.** A bad or partial
+  `pricing.models[...]` / `pricing.fallback` row throws at startup with the
+  offending key instead of silently dropping the row and pricing it with the
+  Flash fallback.
+
+### Added
+
+- `tests/usage.test.mjs`: behavioral `node:test` coverage for exact Flash/Pro
+  prices, peak rates, failed-attempt accounting, stream fallback, invalid
+  pricing configuration, message/stream de-duplication, and the concurrent
+  cold-load regression.
+- `npm test` now runs the structural checks **and** the behavioral suite;
+  `npm run check` keeps the structural-only mode.
+
+### Changed
+
+- Documentation now distinguishes structural checks from accounting regressions
+  and explains the attempt/stream rules and strict pricing validation.
+
 ## [1.2.1] - 2026-11-08
 
 ### Fixed
@@ -128,7 +161,8 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.2...HEAD
+[1.2.2]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.0
 [1.1.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.1

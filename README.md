@@ -14,10 +14,10 @@
 A DeepSeek Harness plugin that answers one question for every conversation:
 **what did it cost, in money and tokens?**
 
-It reads the committed session log, folds `assistant/message` usage into
-per-conversation and per-turn totals, and presents them in the places where you
-already work: the sidebar, the conversation's View tabs, the session header, and
-the end of every answer.
+It reads the committed session log, folds `assistant/message` usage plus
+`assistant/attempt` stream usage into per-conversation and per-turn totals, and
+presents them in the places where you already work: the sidebar, the
+conversation's View tabs, the session header, and the end of every answer.
 
 ## Surfaces
 
@@ -236,9 +236,11 @@ defaults; see [docs/configuration.md](docs/configuration.md) for every field.
 ```
 
 Model keys match case-insensitively as substrings of the model id, longest key
-first. The first **All conversations** query reads every cold session once and
-caches the folded index in memory; later queries only fold newly committed live
-events.
+first. Each model row and `fallback` must contain non-negative numeric `hit`,
+`miss`, and `out`; a malformed or partial row throws at plugin startup instead of
+silently falling back. The first **All conversations** query reads every cold
+session once and caches the folded index in memory; later queries only fold newly
+committed live events.
 
 ## Data, privacy, and security
 
@@ -295,7 +297,8 @@ dsh-session-usage/
 ├── locale/{en,zh}.json      Plugin Manager display metadata
 ├── cordis.patch.yml         Bundle layer: one Host row
 ├── icon.svg                 Plugin icon (original artwork, MIT)
-├── scripts/check.mjs        Dependency-free repository checks / CI
+├── scripts/check.mjs        Dependency-free structural checks / CI
+├── tests/usage.test.mjs     Behavioral accounting and pricing regressions
 ├── docs/                    Architecture, configuration, pricing, publishing
 ├── examples/                Example profile patch
 ├── CHANGELOG.md
@@ -310,11 +313,16 @@ dsh-session-usage/
 There is no compilation step. Edit `client.js` / `index.js` / `lib/*.js` and run:
 
 ```sh
-npm test          # node scripts/check.mjs
+npm test          # structural checks + behavioral accounting tests
+npm run check     # structural checks only
 ```
 
-The check validates the manifest, exports, locale metadata, SVG size, the
-Client loader id, JavaScript syntax, and the absence of temporary/local files.
+`npm test` runs `scripts/check.mjs` (manifest, exports, locale metadata, SVG
+size, Client loader id, JavaScript syntax, temporary files) and then the
+`node:test` suite in `tests/usage.test.mjs`. The behavioral suite asserts exact
+prices, peak/off-peak rates, failed-attempt accounting, stream fallback,
+pricing-config errors, and the concurrent cold-load regression; a change that
+silently changes the amount fails CI.
 
 To preview a local checkout, install its directory as a bundle (see above).
 Client-only edits are picked up by a page refresh after the bundle reloads;

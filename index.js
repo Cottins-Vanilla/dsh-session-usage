@@ -186,6 +186,8 @@ export function apply(ctx, config) {
   const cache = new Map()
   /** @type {Map<string, Promise<unknown>>} */
   const inflight = new Map()
+  /** @type {Map<string, Promise<ReturnType<typeof createRecord>>>} */
+  const loading = new Map()
 
   const sessionQuery = () => ctx.get('sessionQuery')
 
@@ -230,6 +232,7 @@ export function apply(ctx, config) {
   }
 
   function foldCold(record, snapshot) {
+    if (!record || record.loaded) return record
     const inherited = Math.max(0, Number(snapshot?.inheritedEventCount) || 0)
     record.inherited = inherited
     record.lastSeq = inherited - 1
@@ -238,39 +241,63 @@ export function apply(ctx, config) {
     return record
   }
 
-  /** Ensure a record for a listed header, reading the cold log only once. */
+  /** Load one cold record at most once, sharing the fold across concurrent requests. */
+  function coldLoad(id, header, session) {
+    let pending = loading.get(id)
+    if (pending) return pending
+    const existing = cache.get(id)
+    if (existing?.loaded) return Promise.resolve(existing)
+    pending = (async () => {
+      const snapshot = await readCold(id)
+      let record = cache.get(id)
+      if (!record) {
+        record = createRecord(
+          snapshot?.session ?? session?.header ?? header ?? { id },
+          snapshot?.inheritedEventCount ?? session?.inheritedEventCount ?? 0,
+        )
+        cache.set(id, record)
+      }
+      if (session) markLive(record, session)
+      if (!record.loaded) foldCold(record, snapshot)
+      return record
+    })().finally(() => {
+      if (loading.get(id) === pending) loading.delete(id)
+    })
+    loading.set(id, pending)
+    return pending
+  }
+
+  /** Ensure a record for a listed header, reading and folding the cold log only once. */
   async function ensureRecord(header, liveMap) {
     const id = header.id
     const session = liveMap.get(id)
-    let record = cache.get(id)
-    if (!record) {
-      record = createRecord(session?.header ?? header, session?.inheritedEventCount ?? 0)
-      cache.set(id, record)
-    }
-    if (session) markLive(record, session)
-    if (record.loaded) return record
-    return foldCold(record, await readCold(id))
-  }
-
-  /** Ensure a record by id even when it is not in the newest-N listing. */
-  async function ensureById(id, liveMap) {
-    let record = cache.get(id)
-    const session = liveMap.get(id)
-    if (record) {
-      if (session) markLive(record, session)
-      if (record.loaded) return record
+    const existing = cache.get(id)
+    if (existing) {
+      if (session) markLive(existing, session)
+      if (existing.loaded) return existing
     } else if (session) {
-      record = createRecord(session.header, session.inheritedEventCount)
+      const record = createRecord(session.header ?? header, session.inheritedEventCount ?? 0)
       cache.set(id, record)
       markLive(record, session)
       if (record.loaded) return record
     }
-    const snapshot = await readCold(id)
-    if (!record) {
-      record = createRecord(snapshot?.session ?? { id }, snapshot?.inheritedEventCount ?? 0)
+    return coldLoad(id, header, session)
+  }
+
+  /** Ensure a record by id even when it is not in the newest-N listing. */
+  async function ensureById(id, liveMap) {
+    const session = liveMap.get(id)
+    const existing = cache.get(id)
+    if (existing) {
+      if (session) markLive(existing, session)
+      if (existing.loaded) return existing
+    } else if (session) {
+      const record = createRecord(session.header, session.inheritedEventCount)
       cache.set(id, record)
+      markLive(record, session)
+      if (record.loaded) return record
     }
-    return foldCold(record, snapshot)
+    return coldLoad(id, { id }, session)
   }
 
   async function readAll(liveMap) {

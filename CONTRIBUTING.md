@@ -28,14 +28,18 @@ cd dsh-session-usage
 npm test
 ```
 
-`npm test` runs `scripts/check.mjs`, which validates:
+`npm test` runs two layers:
 
-- `package.json` metadata, exports, bundle and client declarations;
-- required files and locale metadata;
-- the Client loader id matches the package name;
-- the icon is a small SVG;
-- all JavaScript files parse;
-- no temporary or local-only files are present.
+- `scripts/check.mjs` validates `package.json` metadata, exports, bundle and
+  client declarations, required files and locale metadata, the Client loader id,
+  SVG size, JavaScript syntax, and temporary/local-only files.
+- `tests/usage.test.mjs` asserts behavior with `node:test`: exact Flash/Pro
+  prices, peak/off-peak multipliers, failed-attempt and stream usage accounting,
+  hard errors for malformed pricing overrides, and concurrent cold-load dedupe.
+
+`npm run check` runs only the structural layer. Any change to pricing, usage
+folding, or caching must include or update a behavioral assertion; a green
+structural check alone is not sufficient.
 
 ### Previewing locally
 

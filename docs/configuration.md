@@ -29,8 +29,8 @@ To tune it, override the same row in the profile patch:
 ```
 
 A profile override replaces the complete `config` object for that row. The
-plugin still merges its own defaults underneath, so partial objects are safe;
-unknown fields are ignored.
+plugin still merges its own defaults underneath, so partial top-level objects
+are safe; model rate rows must be complete. Unknown fields are ignored.
 
 ## Top-level fields
 
@@ -56,7 +56,9 @@ Invalid numbers fall back to the default. Decimal values are truncated.
 
 `pricing.models` keys match case-insensitively as **substrings** of the model id,
 longest key first. For example, `deepseek-v4-flash` wins over `deepseek-flash`.
-Rates are non-negative numbers; malformed rows are ignored.
+Each model row and `pricing.fallback` must contain non-negative numeric `hit`,
+`miss`, and `out`; a malformed or partial row throws at plugin startup instead of
+being silently dropped. Top-level fields remain optional and merge with defaults.
 
 There is no separate cache-write rate: `cacheWriteTokens` is billed at the
 `miss` rate. This is correct for the current DeepSeek table, where cache writes

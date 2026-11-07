@@ -41,7 +41,9 @@ For each session, `lib/stats.js` walks committed events:
 | `turn/start` | Creates the turn bucket |
 | `turn/end` | Records the turn's closing sequence |
 | `step/start` | Counts steps, per session and per turn |
-| `assistant/message` | Adds `usage` to session, model, day, and turn buckets; prices the message at its event time |
+| `request/header`, `request/context` | Records the current model/provider for later attempts |
+| `assistant/message` | Adds `usage` (or the last stream `usage` chunk) to session, model, day, and turn buckets; prices the message at its event time |
+| `assistant/attempt` | Adds the last stream `usage` chunk to session, model, day, and turn buckets, but not to the visible-message count |
 
 Rules that matter:
 
@@ -51,9 +53,17 @@ Rules that matter:
 - **Live increments are deduplicated.** Every record stores `lastSeq`; folding a
   live session again skips events already seen. Folding is pure, so a cold read
   followed by live `ownEvents()` is safe.
-- **Price is computed per assistant message.** `lib/pricing.js` chooses the
-  rate row by model id and the peak/off-peak multiplier from the event time
-  (Beijing calendar), then applies the token buckets.
+- **A cold record is folded at most once.** `ensureRecord()`/`ensureById()` share
+  a per-session load promise, and `foldCold()` refuses to fold an already loaded
+  record. Two concurrent **All conversations** requests therefore read one cold
+  log once and produce one total, not two.
+- **Failed attempts are billable.** An `assistant/attempt` has no
+  `assistant/message`; its only token accounting is the last `usage` chunk in
+  `data.stream`. Those tokens and their price are counted, while the visible
+  message count stays unchanged.
+- **Price is computed per model call.** `lib/pricing.js` chooses the rate row by
+  model id and the peak/off-peak multiplier from the event time (Beijing
+  calendar), then applies the token buckets.
 - **Token totals** follow `TokenUsage`: `totalTokens` when supplied, otherwise
   `input + cacheRead + cacheWrite + output`. `outputTokens` already contains
   reasoning tokens.
@@ -64,8 +74,10 @@ Rules that matter:
 
 - One in-memory `Map<sessionId, record>`.
 - Cold sessions are read once through `sessionQuery.readSession()`; an in-flight
-  map deduplicates concurrent reads, and at most three sessions are read at a
-  time.
+  read map deduplicates concurrent reads, a per-session load map shares the fold,
+  and at most three sessions are read at a time.
+- `foldCold()` is guarded by `record.loaded`, so even a duplicate caller that
+  already passed the load check cannot re-fold a completed snapshot.
 - Live sessions are folded from `session.ownEvents()` on each query; `lastSeq`
   makes this incremental.
 - The cache is not persisted. Restarting the Host or reloading the plugin
@@ -178,6 +190,7 @@ does not affect the usage query.
 | `sessionQuery` unavailable | Query returns `ok: false` with a diagnostic; panel shows retry |
 | One cold session unreadable | That session is skipped; `warnings[]` counts it |
 | Invalid scope/session id | Empty current/project response or a diagnostic |
+| Invalid pricing override | Plugin startup throws with the offending key; no silent fallback |
 | Client route unauthorized | Panel/chip show an error; no data written |
 | Update check offline or rate-limited | Header shows a non-blocking failure note; usage data stays usable |
 | Log format migration | `readSession()` failure is isolated per session |

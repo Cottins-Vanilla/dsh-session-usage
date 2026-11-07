@@ -13,7 +13,7 @@
 
 一个 DeepSeek Harness 插件，回答每个对话都关心的问题：**它花了多少钱、多少 token？**
 
-插件读取已提交的会话日志，把 `assistant/message` 的用量折叠成按对话、按轮次的统计，并放在你
+插件读取已提交的会话日志，把 `assistant/message` 的用量以及 `assistant/attempt` 流里的用量折叠成按对话、按轮次的统计，并放在你
 本来就在看的位置：侧边栏、对话顶部 View 标签、会话标题栏，以及每个回答的末尾。
 
 ## 四个入口
@@ -193,7 +193,8 @@ bundle 行支持可选的 `config` 对象，覆盖内置默认值；每个字段
       holidays: ['2026-10-01']
 ```
 
-模型键按模型 id 的大小写不敏感子串匹配，最长键优先。第一次打开“全部对话”会读取并缓存所有冷
+模型键按模型 id 的大小写不敏感子串匹配，最长键优先。每个模型行和 `fallback` 必须包含非负数字
+`hit`、`miss`、`out`；写错或不完整会在插件启动时报错，不会静默回退。第一次打开“全部对话”会读取并缓存所有冷
 会话，之后只折叠新提交的 live 事件。
 
 ## 数据、隐私与安全
@@ -243,7 +244,8 @@ dsh-session-usage/
 ├── locale/{en,zh}.json      Plugin Manager 展示元数据
 ├── cordis.patch.yml         Bundle 层：一行 Host 条目
 ├── icon.svg                 插件图标（原创，MIT）
-├── scripts/check.mjs        无依赖的仓库检查 / CI
+├── scripts/check.mjs        无依赖的结构检查 / CI
+├── tests/usage.test.mjs     计费与并发回归测试
 ├── docs/                    架构、配置、定价、发布
 ├── examples/                示例 profile patch
 ├── CHANGELOG.md
@@ -258,11 +260,11 @@ dsh-session-usage/
 没有编译步骤。修改 `client.js` / `index.js` / `lib/*.js` 后运行：
 
 ```sh
-npm test          # node scripts/check.mjs
+npm test          # 结构检查 + 计费行为测试
+npm run check     # 仅结构检查
 ```
 
-检查内容包括 manifest、exports、语言元数据、SVG 大小、Client loader id、JavaScript 语法，以及
-是否存在临时/本地文件。
+`npm test` 先运行 `scripts/check.mjs`（manifest、exports、语言元数据、SVG 大小、Client loader id、JavaScript 语法、临时文件），再运行 `tests/usage.test.mjs` 的 `node:test` 套件。行为测试会断言具体金额、峰谷价、失败尝试用量、流内 usage 回退、错误配置抛错和并发冷加载回归；改坏计价口径会让 CI 失败。
 
 本地预览时，把目录作为 bundle 安装（见上文）。Client 侧修改在 bundle 重载后刷新页面即可；Host
 侧修改需要切换插件或重启应用。

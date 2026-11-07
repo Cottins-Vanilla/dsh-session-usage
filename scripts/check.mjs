@@ -56,6 +56,12 @@ if (pkg) {
   check('package repository', typeof pkg.repository?.url === 'string')
   check('package homepage', typeof pkg.homepage === 'string')
   check('package bugs', typeof pkg.bugs?.url === 'string')
+  check('package scripts.check', pkg.scripts?.check === 'node scripts/check.mjs')
+  check(
+    'package scripts.test includes behavioral suite',
+    String(pkg.scripts?.test || '').includes('node --test tests/usage.test.mjs'),
+    'package scripts.test must run node --test tests/usage.test.mjs',
+  )
   check('package icon', exists('icon.svg'))
   check('package exports .', pkg.exports?.['.'] === './index.js')
   check('package exports ./client', pkg.exports?.['./client'] === './client.js')
@@ -76,6 +82,7 @@ if (pkg) {
     'LICENSE',
     'CHANGELOG.md',
     'scripts/check.mjs',
+    'tests/usage.test.mjs',
   ]
   for (const file of requiredFiles) check(`file ${file}`, exists(file), `missing required file: ${file}`)
 

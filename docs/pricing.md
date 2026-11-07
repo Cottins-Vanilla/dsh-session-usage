@@ -5,7 +5,7 @@ with a small, transparent table. Treat every amount as an estimate.
 
 ## Formula
 
-For one `assistant/message` at time `t`:
+For one `assistant/message` or `assistant/attempt` at time `t`:
 
 ```text
 rates = table.match(model) or table.fallback
@@ -29,6 +29,15 @@ if model starts with "deepseek" and isPeak(t):
   table has no separate write rate.
 - The total token figure is `input + cacheRead + cacheWrite + output` (or an
   explicit `totalTokens` when the provider supplies one).
+- `assistant/message` uses `data.usage`; if that field is absent, the last
+  `usage` chunk in its stream is used instead.
+- `assistant/attempt` has no message and no `data.usage`. Its billable usage is
+  read from the last `usage` chunk in `data.stream`; tokens and cost are added to
+  the session, day, model, and turn, but it is not counted as a visible message.
+  The model comes from the preceding `request/header`/`request/context` or the
+  last assistant message.
+- A failed attempt followed by a successful retry therefore contributes both
+  attempts' tokens, matching provider billing for the failed request.
 
 ## Default table
 
@@ -48,6 +57,13 @@ id, longest key first:
 
 The defaults are based on DeepSeek's public pricing. Prices change; verify the
 current official table before using these numbers for reconciliation.
+
+## Overrides are validated
+
+`pricing.models` and `pricing.fallback` rows must contain exactly three
+non-negative **numbers** (`hit`, `miss`, `out`). A malformed row throws at plugin
+startup with the offending key; it is never silently dropped. This prevents a
+mistyped Pro row from quietly pricing Pro at the fallback (Flash) rate.
 
 ## Peak windows
 
