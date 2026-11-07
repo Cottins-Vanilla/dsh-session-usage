@@ -126,8 +126,8 @@ It has no side effects.
   matches its turn by the closing `seq` (or a turn hint when available); a new
   turn triggers one refetch, and older badges reuse the cached data.
 - The panel's metric preference is stored in `localStorage`; the chart mode
-  follows the scope (turns for current, days for project/all) and can be changed
-  for the session.
+  follows the scope (per-turn value for current, days for project/all) and can be
+  changed for the session.
 
 ### Rendering
 

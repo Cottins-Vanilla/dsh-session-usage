@@ -47,12 +47,16 @@ End of a completed answer
 - **Three scopes** — current conversation, current project (the conversation's
   working directory), or all conversations. Every scope names its target: the
   conversation title, the project folder, or the number of conversations.
-- **Two curves** — a zero-filled daily curve and a per-turn cumulative curve.
-  - The per-turn curve gives the eight most expensive conversations their own
-    colors and folds the rest into a gray **other conversations** series.
+- **Per-turn and daily curves** — a zero-filled daily curve, a per-turn value
+  curve for the current conversation, and a per-turn cumulative curve.
+  - **每轮值 / Per-turn value** is available only for the current conversation:
+    each point is that turn alone, with no accumulation.
+  - The per-turn cumulative curve gives the eight most expensive conversations
+    their own colors and folds the rest into a gray **other conversations**
+    series.
   - A legend shows the color, title, project, and total for each series; click a
     legend item to hide or show that conversation.
-  - Hover any point to inspect the cumulative value of every visible series.
+  - Hover any point to inspect the value of every visible series.
 - **Click-through** — every conversation row opens that conversation; the
   current-conversation view also lists each turn.
 - **Turn cost badges** — after each answer, the badge shows that turn's price
@@ -131,14 +135,22 @@ conversation has been opened in this page.
 
 ### Curve modes
 
-Use the **每日 / Daily** and **每轮累计 / By turn** toggle at the top right of the
-chart card.
+The toggle at the top right of the chart card depends on the scope.
 
-- **Daily** is a zero-filled window of `chartDays` calendar days, ending today
-  (Beijing date). It answers "when did I spend what?"
-- **By turn** plots each conversation's cumulative metric against its turn
-  number. It answers "how did this conversation grow, and which conversation is
-  ahead at turn N?"
+For the **current conversation**, in order:
+
+1. **每轮值 / Per-turn value** — each turn's own value, not accumulated. This is
+   the default for the current conversation. It answers "which turn cost the
+   most?"
+2. **每轮累计 / By turn** — cumulative value across turns. It answers "how did
+   this conversation grow?"
+3. **每日 / Daily** — a zero-filled window of `chartDays` calendar days, ending
+   today (Beijing date). It answers "when did I spend what?"
+
+For **current project** and **all conversations**, the toggle is **Daily** then
+**By turn**; the single-turn value view is intentionally limited to the current
+conversation. The cumulative view plots the eight most expensive conversations
+as colored lines plus a gray aggregate.
 
 ### Turn cost badges
 

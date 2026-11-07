@@ -66,12 +66,15 @@ The 2026 holiday list is bundled. Update `pricing.holidays` for later years.
 - **KPI “Estimated price”** — all-time sum for the selected scope.
 - **Daily chart** — the selected metric (price or tokens) per Beijing calendar
   day, zero-filled.
-- **Per-turn chart** — cumulative price/tokens by turn for each conversation.
+- **Per-turn value chart** — current conversation only; each point is that
+  turn's own price/tokens, without accumulation.
+- **Per-turn cumulative chart** — cumulative price/tokens by turn for each
+  conversation.
 - **Conversation list** — total price for each conversation; the price is also the
   secondary value when another metric is selected.
 - **Header chip** — current conversation total price and tokens.
-- **Turn badge** — conversation total through that answer and that answer's
-  price.
+- **Turn badge** — that answer's price first, then the conversation total through
+  that answer.
 
 ## Known approximations
 

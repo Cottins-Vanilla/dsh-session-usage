@@ -37,9 +37,11 @@ screenshots, reviews, and accessibility checks.
    conversations/turns/steps.
 4. **Chart card**
    - Title and window/series note.
-   - **每日 / Daily** and **每轮累计 / By turn** mode toggle.
+   - Mode toggle. For the current conversation, in order: **每轮值 / Per-turn
+     value**, **每轮累计 / By turn**, **每日 / Daily**. For project/all:
+     **每日 / Daily**, **每轮累计 / By turn**.
    - SVG curve; hover shows a guide and a tooltip.
-   - Legend in By-turn mode: color, title, project (all scope), total, and a
+   - Legend in By-turn modes: color, title, project (all scope), total, and a
      visibility toggle.
 5. **Detail card**
    - Current scope: per-turn rows.
@@ -61,10 +63,15 @@ disabled and a short hint is shown.
 
 ## Chart behavior
 
+- **Per-turn value** — current conversation only; each point is that turn
+  alone, with no accumulation. This is the default for the current
+  conversation.
+- **By turn** — cumulative metric per turn. One colored line per top
+  conversation, plus a gray aggregate for project/all.
 - **Daily** — one line, zero-filled over `chartDays`, ending today.
-- **By turn** — one colored line per top conversation, plus a gray aggregate.
-- X axis is turn number (`T1`, `T2`, …); Y axis is the selected metric
-  (cumulative in By-turn mode).
+- X axis is turn number (`T1`, `T2`, …), or the date in Daily mode; Y axis is
+  the selected metric (single-turn in Per-turn value mode, cumulative in
+  By-turn mode).
 - Hover snaps to the nearest turn or day. The tooltip lists up to six visible
   series, sorted by value.
 - Clicking a legend item hides or shows its series. Hidden series are dimmed in

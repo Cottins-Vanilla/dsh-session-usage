@@ -58,6 +58,9 @@ window.__ModuleLoader__.load({
         'chart.hint': '将鼠标移到曲线上查看每个点的数值',
         'chart.modeDays': '每日',
         'chart.modeTurns': '每轮累计',
+        'chart.modeTurnValue': '每轮值',
+        'chart.turnValue': '每轮值',
+        'chart.perTurn': '单轮消耗，不累计',
         'chart.otherPrefix': '其他',
         'chart.legendHint': '点击图例可隐藏或显示对应对话',
         'chart.seriesNote': '最多显示 8 个对话',
@@ -132,6 +135,9 @@ window.__ModuleLoader__.load({
         'chart.hint': 'Hover the curve to inspect each point',
         'chart.modeDays': 'Daily',
         'chart.modeTurns': 'By turn',
+        'chart.modeTurnValue': 'Per-turn',
+        'chart.turnValue': 'Per-turn value',
+        'chart.perTurn': 'Single turn, not cumulative',
         'chart.otherPrefix': 'Other',
         'chart.legendHint': 'Click a legend item to hide or show that conversation',
         'chart.seriesNote': 'up to 8 conversations',
@@ -718,6 +724,17 @@ window.__ModuleLoader__.load({
       return { values, total }
     }
 
+    function pointValuesOf(points, metric) {
+      const ordered = [...points].sort((a, b) => Number(a.turn) - Number(b.turn))
+      let total = 0
+      const values = ordered.map((point) => {
+        const value = metricValue(point, metric)
+        total += value
+        return { turn: Number(point.turn) || 0, value, point }
+      })
+      return { values, total }
+    }
+
     function UsageChart({ mode, daily, turns, metric, symbol, t, showProject }) {
       const width = 760
       const height = 252
@@ -731,7 +748,7 @@ window.__ModuleLoader__.load({
 
       const dailyPoints = React.useMemo(() => (Array.isArray(daily) ? daily : []), [daily])
       const items = React.useMemo(() => {
-        if (mode !== 'turns') return []
+        if (mode !== 'turns' && mode !== 'turnValue') return []
         const list = []
         const source = turns && Array.isArray(turns.series) ? turns.series : []
         source.forEach((entry, index) => {
@@ -745,7 +762,7 @@ window.__ModuleLoader__.load({
             other: false,
             total: Number(entry.cost) || 0,
             tokens: Number(entry.tokens) || 0,
-            cumulative: cumulativeOf(points, metric),
+            series: mode === 'turnValue' ? pointValuesOf(points, metric) : cumulativeOf(points, metric),
           })
         })
         const other = turns && turns.other
@@ -759,7 +776,7 @@ window.__ModuleLoader__.load({
             other: true,
             total: Number(other.cost) || 0,
             tokens: Number(other.tokens) || 0,
-            cumulative: cumulativeOf(other.points, metric),
+            series: mode === 'turnValue' ? pointValuesOf(other.points, metric) : cumulativeOf(other.points, metric),
           })
         }
         return list
@@ -778,16 +795,20 @@ window.__ModuleLoader__.load({
       const maxTurn = Math.max(
         1,
         Number(turns?.maxTurn) || 0,
-        ...items.map((item) => (item.cumulative.values.length > 0
-          ? item.cumulative.values[item.cumulative.values.length - 1].turn
+        ...items.map((item) => (item.series.values.length > 0
+          ? item.series.values[item.series.values.length - 1].turn
           : 0)),
       )
       const dailyValues = dailyPoints.map((point) => metricValue(point, metric))
       let peak = 0
-      if (mode === 'turns') {
-        for (const item of visible) peak = Math.max(peak, item.cumulative.total)
-      } else {
+      if (mode === 'days') {
         for (const value of dailyValues) peak = Math.max(peak, value)
+      } else if (mode === 'turns') {
+        for (const item of visible) peak = Math.max(peak, item.series.total)
+      } else {
+        for (const item of visible) {
+          for (const entry of item.series.values) peak = Math.max(peak, entry.value)
+        }
       }
       const max = niceMax(peak)
       const span = width - padLeft - padRight
@@ -838,8 +859,12 @@ window.__ModuleLoader__.load({
       }
 
       const valueAt = (item, turn) => {
+        if (mode === 'turnValue') {
+          const exact = item.series.values.find((entry) => entry.turn === turn)
+          return exact ? exact.value : 0
+        }
         let value = 0
-        for (const entry of item.cumulative.values) {
+        for (const entry of item.series.values) {
           if (entry.turn <= turn) value = entry.value
           else break
         }
@@ -853,18 +878,18 @@ window.__ModuleLoader__.load({
         ? `${dailyLine} L${xDay(dailyPoints.length - 1).toFixed(2)} ${baseY} L${xDay(0).toFixed(2)} ${baseY} Z`
         : ''
 
-      const turnPaths = mode === 'turns'
+      const turnPaths = mode === 'turns' || mode === 'turnValue'
         ? visible.map((item) => ({
           item,
-          line: item.cumulative.values
+          line: item.series.values
             .map((entry, index) => `${index === 0 ? 'M' : 'L'}${xTurn(entry.turn).toFixed(2)} ${yOf(entry.value).toFixed(2)}`)
             .join(' '),
         }))
         : []
       const singlePath = turnPaths.length === 1 ? turnPaths[0] : null
-      const singleArea = singlePath && singlePath.item.cumulative.values.length > 1
+      const singleArea = singlePath && singlePath.item.series.values.length > 1
         ? (() => {
-          const values = singlePath.item.cumulative.values
+          const values = singlePath.item.series.values
           return `${singlePath.line} L${xTurn(values[values.length - 1].turn).toFixed(2)} ${baseY} L${xTurn(values[0].turn).toFixed(2)} ${baseY} Z`
         })()
         : ''
@@ -898,7 +923,7 @@ window.__ModuleLoader__.load({
       const labelStepDays = Math.max(1, Math.ceil(dailyPoints.length / 7))
       const labelStepTurns = Math.max(1, Math.ceil(maxTurn / 8))
       const turnLabelValues = []
-      if (mode === 'turns') {
+      if (mode === 'turns' || mode === 'turnValue') {
         turnLabelValues.push(1)
         for (let turn = 1 + labelStepTurns; turn < maxTurn; turn += labelStepTurns) turnLabelValues.push(turn)
         if (maxTurn > 1 && turnLabelValues[turnLabelValues.length - 1] !== maxTurn) turnLabelValues.push(maxTurn)
@@ -909,7 +934,7 @@ window.__ModuleLoader__.load({
           className: 'dsu-chart',
           viewBox: `0 0 ${width} ${height}`,
           role: 'img',
-          'aria-label': t(mode === 'turns' ? 'chart.turns' : 'chart.days'),
+          'aria-label': t(mode === 'days' ? 'chart.days' : (mode === 'turnValue' ? 'chart.turnValue' : 'chart.turns')),
           onMouseMove: onMove,
           onMouseLeave: () => setHover(-1),
         },
@@ -976,8 +1001,8 @@ window.__ModuleLoader__.load({
                 strokeWidth: 2,
               })
               : null)
-            : visible.map((item) => (item.cumulative.values.length <= 24
-              ? item.cumulative.values.map((entry) => h('circle', {
+            : visible.map((item) => (item.series.values.length <= 24
+              ? item.series.values.map((entry) => h('circle', {
                 key: `dot-${item.id}-${entry.turn}`,
                 cx: xTurn(entry.turn),
                 cy: yOf(entry.value),
@@ -1035,7 +1060,7 @@ window.__ModuleLoader__.load({
               : null,
           )
           : null,
-        mode === 'turns' && items.length > 0
+        (mode === 'turns' || mode === 'turnValue') && items.length > 0
           ? h('div', { className: 'dsu-legend' },
             items.map((item) => h('button', {
               key: item.id,
@@ -1050,7 +1075,7 @@ window.__ModuleLoader__.load({
                 item.label,
                 item.project ? h('span', { className: 'dsu-legend-project' }, ` · ${item.project}`) : null,
               ),
-              h('span', { className: 'dsu-legend-value' }, formatRaw(item.cumulative.total, metric, symbol)),
+              h('span', { className: 'dsu-legend-value' }, formatRaw(item.series.total, metric, symbol)),
             )),
             h('span', { className: 'dsu-legend-hint' }, t('chart.legendHint')),
           )
@@ -1153,7 +1178,7 @@ window.__ModuleLoader__.load({
           : store
         const [scope, setScope] = React.useState(() => (sessionId ? 'current' : 'all'))
         const [metricId, setMetricId] = React.useState(readMetricPref)
-        const [chartMode, setChartMode] = React.useState(() => (sessionId ? 'turns' : 'days'))
+        const [chartMode, setChartMode] = React.useState(() => (sessionId ? 'turnValue' : 'days'))
         const [openError, setOpenError] = React.useState('')
         const turnColor = useTurnColor()
         const effectiveScope = scope !== 'all' && !sessionId ? 'all' : scope
@@ -1194,7 +1219,7 @@ window.__ModuleLoader__.load({
         }, [data && data.current ? data.current.id : '', data && data.current ? data.current.title : '', data && data.current ? data.current.cwd : ''])
 
         React.useEffect(() => {
-          setChartMode(effectiveScope === 'current' ? 'turns' : 'days')
+          setChartMode(effectiveScope === 'current' ? 'turnValue' : 'days')
         }, [effectiveScope])
 
         const chooseScope = (next) => {
@@ -1324,13 +1349,27 @@ window.__ModuleLoader__.load({
           )
           : null
 
-        const hasChartData = chartMode === 'turns'
-          ? !!(turns && ((Array.isArray(turns.series) && turns.series.length > 0) || turns.other))
-          : daily.length > 0
-        const chartTitle = chartMode === 'turns' ? t('chart.turns') : t('chart.days')
-        const chartNote = chartMode === 'turns'
-          ? (effectiveScope === 'current' ? '' : t('chart.seriesNote'))
-          : (data ? `${t('chart.window')} ${data.chartDays || daily.length} ${t('unit.days')}` : '')
+        const chartModes = effectiveScope === 'current'
+          ? [
+            { id: 'turnValue', labelKey: 'chart.modeTurnValue' },
+            { id: 'turns', labelKey: 'chart.modeTurns' },
+            { id: 'days', labelKey: 'chart.modeDays' },
+          ]
+          : [
+            { id: 'days', labelKey: 'chart.modeDays' },
+            { id: 'turns', labelKey: 'chart.modeTurns' },
+          ]
+        const hasChartData = chartMode === 'days'
+          ? daily.length > 0
+          : !!(turns && ((Array.isArray(turns.series) && turns.series.length > 0) || turns.other))
+        const chartTitle = chartMode === 'turnValue'
+          ? t('chart.turnValue')
+          : (chartMode === 'turns' ? t('chart.turns') : t('chart.days'))
+        const chartNote = chartMode === 'turnValue'
+          ? t('chart.perTurn')
+          : chartMode === 'turns'
+            ? (effectiveScope === 'current' ? '' : t('chart.seriesNote'))
+            : (data ? `${t('chart.window')} ${data.chartDays || daily.length} ${t('unit.days')}` : '')
 
         const chartCard = h('div', { className: 'dsu-card' },
           h('div', { className: 'dsu-card-head' },
@@ -1338,16 +1377,12 @@ window.__ModuleLoader__.load({
             h('div', { className: 'dsu-inline' },
               h('span', { className: 'dsu-card-note' }, chartNote),
               h('div', { className: 'dsu-seg dsu-mode', role: 'group', 'aria-label': chartTitle },
-                h('button', {
+                chartModes.map((entry) => h('button', {
+                  key: entry.id,
                   type: 'button',
-                  className: `dsu-seg-btn${chartMode === 'days' ? ' is-on' : ''}`,
-                  onClick: () => setChartMode('days'),
-                }, t('chart.modeDays')),
-                h('button', {
-                  type: 'button',
-                  className: `dsu-seg-btn${chartMode === 'turns' ? ' is-on' : ''}`,
-                  onClick: () => setChartMode('turns'),
-                }, t('chart.modeTurns')),
+                  className: `dsu-seg-btn${chartMode === entry.id ? ' is-on' : ''}`,
+                  onClick: () => setChartMode(entry.id),
+                }, t(entry.labelKey))),
               ),
             ),
           ),

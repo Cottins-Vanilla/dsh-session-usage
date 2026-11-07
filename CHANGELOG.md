@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.1.0] - 2026-11-07
+
+### Added
+
+- **每轮值 / Per-turn value** chart for the current conversation: every point is
+  a single turn's value, without accumulation.
+- The current-conversation mode toggle now offers per-turn value, per-turn
+  cumulative, and daily, in that order; per-turn value is the default.
+
+### Changed
+
+- The current conversation opens on the new per-turn value view; switching to
+  project/all still opens the daily view.
+- READMEs, the UI map, configuration notes, and pricing notes describe the new
+  mode and its scope restriction.
+
 ## [1.0.1] - 2026-11-07
 
 ### Changed
@@ -62,6 +78,7 @@ Nothing yet.
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.1.0
 [1.0.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.0.0

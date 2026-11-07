@@ -4,7 +4,8 @@
 
 | Version | Supported |
 | --- | --- |
-| 1.0.x | ✅ |
+| 1.1.x | ✅ |
+| 1.0.x | ⚠️ upgrade recommended |
 | < 1.0 | ❌ |
 
 The plugin is tested against DeepSeek Harness **0.2.2-rc.1** on the Web

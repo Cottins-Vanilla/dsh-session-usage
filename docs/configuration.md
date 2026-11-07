@@ -91,9 +91,9 @@ These are not part of the Host config:
 | `dsh-session-usage.metric` | `cost`, `tokens`, `input`, `output`, `cacheRead` | Selected metric |
 | `dsh-session-usage.turnColor` | `#RRGGBB` | Turn badge accent; default `#FFFFFF` |
 
-The chart mode is not persisted: the current conversation opens in **每轮累计**
-(By turn), and project/all open in **每日** (Daily). Switching the mode applies
-until the scope changes or the panel unmounts.
+The chart mode is not persisted: the current conversation opens in **每轮值**
+(Per-turn value), and project/all open in **每日** (Daily). Switching the mode
+applies until the scope changes or the panel unmounts.
 
 The badge color control is in the panel's **标记颜色 / Badge color** row. White is
 the first preset and the default. A custom color is stored in the same key and
