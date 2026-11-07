@@ -15,12 +15,16 @@ jobs:
     timeout-minutes: 5
 
     steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
       - name: Create release from tag
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           tag="${GITHUB_REF_NAME}"
+          test -f RELEASE_NOTES.md
           if gh release view "$tag" >/dev/null 2>&1; then
             echo "Release $tag already exists."
             exit 0
