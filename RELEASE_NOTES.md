@@ -1,76 +1,59 @@
-# Session usage 1.2.3
+# Session usage 1.2.4
 
-Source-review fixes for accounting, cache lifecycle, project scope, async UI,
-navigation, list access, and SemVer. This release closes the 11 findings in the
-2026-11-08 review and clarifies the empty `peakHours` boundary.
+Follow-up release for the v1.2.3 review. The original 11 findings still pass;
+this release closes the five remaining reproduced issues (N01–N05).
 
-## Accounting and cache
+## Accounting
 
-- **F01 — same-call usage revisions now replace.** A call slot keyed by
-  `(turn, step)` subtracts its previous contribution from session, day, model,
-  and turn buckets before adding the revision. `llm/retry-started` closes the
-  slot, so a real retry accumulates while a revised message or attempt does not.
-  Covered for increases, decreases, cross-day, and cross-model revisions.
-- **F02 — live-to-cold tails are synchronized.** When a cached live record is
-  observed after its live session disappears, the Host reads the persisted
-  snapshot and folds only events after `lastSeq`, then marks `live=false`.
-  Concurrent final syncs share one request; failures leave the record live so
-  the next poll retries.
-- **F03 — turn badges wait for a snapshot covering their seq.** The shared
-  `sharedUsage` request is awaited, `maxSeq >= requestedSeq` is verified, and one
-  fresh request is made if the snapshot is too old. A known `turnHint` missing
-  from the snapshot no longer falls back to another turn's amount.
+- **N01 — missing samples retain, explicit zero samples replace.** A message
+  revision with no `data.usage` and no stream usage now updates only the visible
+  message count and leaves the prior token/cost contribution intact. A message
+  or attempt that explicitly reports zero usage replaces the prior contribution
+  with zero. Session, day, model, turn, and message buckets stay consistent.
 
-## Scope and paths
+## Cache lifecycle
 
-- **F04 — project filtering happens before `maxSessions`.** The project cwd
-  filter is applied to listed headers and live additions before the cap, so
-  unrelated projects cannot evict eligible sessions from the target project.
-- **F05 — cwd case follows the platform.** Windows is case-insensitive; POSIX
-  preserves case. `/work/Foo` and `/work/foo` no longer merge on Linux.
-  `lib/path.js` exposes the platform rule for tests.
+- **N02 — stale final sync cannot overwrite a live reactivation.** Each live
+  record carries a `liveGeneration`. A final cold sync captures the generation
+  before reading persistence; if `markLive()` happens while the read is pending,
+  the old snapshot is discarded and the record stays live. A later final sync
+  still folds the remaining persisted tail. This fixes the live → final-sync
+  pending → live again → cold interleaving.
 
-## Header chip and navigation
+## Polling
 
-- **F06 — stale chip values are marked.** A failed poll keeps the last successful
-  value but appends “may be stale” and uses an explicit stale title. First-load
-  failures still show the ordinary error label.
-- **F07 — older chip responses cannot win.** Each poll gets a monotonic id and a
-  dedicated AbortController; only the newest request can apply data or mark
-  failure.
-- **F08 — turn navigation is session-bound.** Pending navigation carries the
-  target session, re-checks it before every retry, cancels timers when the
-  session changes, and clears all timers on plugin unload.
-- **F09 — aggregate and blank chart clicks do nothing.** Hit testing includes the
-  gray “other conversations” series; an aggregate hit ends the operation, and
-  clicks more than 24 chart units from a line are ignored.
+- **N03 — slow requests are no longer cancelled every tick.** The header chip and
+  dashboard now schedule the next poll after the previous request settles,
+  instead of aborting the in-flight request when a fixed interval fires. A
+  request slower than the poll period can now complete. Manual refresh,
+  scope/session changes, and unmount still abort the active request, and request
+  ids still prevent older responses from winning.
 
-## List, version, and pricing boundary
+## Chart hit testing
 
-- **F10 — every counted conversation is reachable.** The list initially renders
-  150 rows, shows “Showing 150 / N”, and expands in 150-row increments with
-  **Show more** instead of silently truncating.
-- **F11 — SemVer 2.0.0 validation and ordering.** The parser now rejects trailing
-  garbage, leading zeroes, empty identifiers, and malformed build metadata.
-  Prerelease comparison follows the spec: numeric identifiers compare
-  numerically and rank below non-numeric identifiers, non-numeric identifiers
-  compare in ASCII order, a shorter identifier set sorts first, and build
-  metadata is ignored.
-- **R01 — empty `peakHours` disables peak pricing.** An explicit empty array now
-  means no peak windows; malformed ranges throw at startup instead of silently
-  restoring defaults.
+- **N04 — hit testing follows the drawn segments.** The chart now interpolates
+  the actual line between rendered points, does not extend a series past its
+  last point, and still ignores aggregate hits and clicks farther than 24 chart
+  units from a line. This fixes two cases:
+  - clicking blank space after a short series no longer opens that conversation;
+  - clicking the midpoint of a steep segment now hits the line.
+
+## Paths
+
+- **N05 — POSIX literal backslashes stay literal.** Backslash-to-slash
+  normalization is Windows-only. On POSIX, `/work/foo\bar` and `/work/foo/bar`
+  are distinct project identities; case sensitivity is unchanged.
 
 ## Verification
 
 ```text
 40 structural checks passed
-17 behavioral tests passed
+22 behavioral tests passed
 ```
 
-The behavioral suite covers same-call revisions, retry boundaries, live-to-cold
-tail sync, project-before-cap filtering, path identity, SemVer ordering, empty
-and malformed peak hours, attempt accounting, stream fallback, pricing
-validation, concurrent cold loading, and the exact Flash/Pro/peak rates.
+New regressions cover missing usage, explicit-zero usage, stale final-sync
+reactivation, and POSIX literal backslashes, alongside the existing price,
+attempt, project, SemVer, peak-hour, concurrency, and path tests.
 
 ## Upgrade
 
@@ -78,10 +61,8 @@ validation, concurrent cold loading, and the exact Flash/Pro/peak rates.
 dsh plugin --profile desktop add https://github.com/Cottins-Vanilla/dsh-session-usage
 ```
 
-Refresh the page after the bundle reloads. Existing settings are unchanged;
-malformed pricing or peak-hour configuration now fails loudly so it can be
-corrected.
+Refresh the page after the bundle reloads. Existing settings are unchanged.
 
 ---
 
-**Full Changelog**: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.2...v1.2.3
+**Full Changelog**: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.3...v1.2.4

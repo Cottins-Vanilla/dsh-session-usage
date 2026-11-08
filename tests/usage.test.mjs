@@ -152,6 +152,47 @@ test('same-call revision reverses the old day and model buckets', () => {
   assert.equal(record.models['deepseek-v4-pro'].total, 1_500_000)
 })
 
+test('a message revision with no usage sample keeps the prior contribution', () => {
+  const first = messageEvent(1, usage(1_000_000))
+  const revision = messageEvent(2, usage(0))
+  delete revision.data.usage
+  revision.data.stream = []
+  const { summary } = recordFor([first, revision])
+  assert.equal(summary.tokens, 1_000_000)
+  assert.equal(summary.cost, 1)
+  assert.equal(summary.messages, 1)
+})
+
+test('a message revision with explicit zero usage replaces the prior contribution', () => {
+  const { summary } = recordFor([
+    messageEvent(1, usage(1_000_000)),
+    messageEvent(2, usage(0)),
+  ])
+  assert.equal(summary.tokens, 0)
+  assert.equal(summary.cost, 0)
+  assert.equal(summary.messages, 1)
+})
+
+test('an attempt revision with explicit zero usage replaces the prior contribution', () => {
+  const { summary } = recordFor([
+    attemptEvent(1, usage(1_000_000)),
+    attemptEvent(2, usage(0)),
+  ])
+  assert.equal(summary.tokens, 0)
+  assert.equal(summary.cost, 0)
+  assert.equal(summary.messages, 0)
+})
+
+test('an attempt revision with no usage sample retains the prior contribution', () => {
+  const first = attemptEvent(1, usage(1_000_000))
+  const missing = attemptEvent(2, usage(0))
+  missing.data.stream = []
+  const { summary } = recordFor([first, missing])
+  assert.equal(summary.tokens, 1_000_000)
+  assert.equal(summary.cost, 1)
+  assert.equal(summary.messages, 0)
+})
+
 test('attempt usage uses the model from the preceding request header', () => {
   const { summary } = recordFor([
     requestHeader(1, 'deepseek-v4-pro'),
@@ -300,10 +341,88 @@ test('live-to-cold transition folds the persisted tail exactly once', async () =
   assert.equal(reads, 1)
 })
 
+test('a stale final sync cannot overwrite a live reactivation', async () => {
+  let reads = 0
+  let live = false
+  const header = { id: 's1', cwd: 'E:/demo', createdAt: 1 }
+  const e1 = messageEvent(1, usage(1_000_000))
+  const e2 = messageEvent(2, usage(1_000_000))
+  const e3 = messageEvent(3, usage(1_000_000))
+  e2.data.turn = 2
+  e3.data.turn = 3
+  let events = [e1]
+  let release
+  const gate = new Promise((resolve) => { release = resolve })
+  const liveSession = {
+    id: 's1',
+    header,
+    inheritedEventCount: 0,
+    ownEvents: () => events.slice(),
+  }
+  const routes = new Map()
+  const ctx = {
+    get(name) {
+      if (name === 'sessions') return { list: () => (live ? [liveSession] : []) }
+      if (name === 'sessionQuery') {
+        return {
+          listSessions: async () => [{ header }],
+          readSession: async () => {
+            reads += 1
+            if (reads === 1) return gate
+            return { session: header, inheritedEventCount: 0, events: events.slice() }
+          },
+        }
+      }
+      return undefined
+    },
+    inject(names, callback) {
+      if (!names.includes('connection')) return
+      const connectionCtx = {
+        get: (name) => name === 'connection'
+          ? { fetch: { register: (options) => { routes.set(options.path, options) } } }
+          : undefined,
+        effect: (fn) => fn(),
+      }
+      callback(connectionCtx)
+    },
+  }
+  apply(ctx, {})
+  const handler = routes.get('/api/session-usage/query').fetch
+  const request = { json: async () => ({ scope: 'all' }) }
+
+  live = true
+  const first = await (await handler(request)).json()
+  assert.equal(first.totals.cost, 1)
+  assert.equal(first.sessions[0].live, true)
+
+  live = false
+  const pending = handler(request)
+  while (reads === 0) await new Promise((resolve) => setTimeout(resolve, 0))
+
+  events = [e1, e2]
+  live = true
+  const reactivated = await (await handler(request)).json()
+  assert.equal(reactivated.totals.cost, 2)
+  assert.equal(reactivated.sessions[0].live, true)
+
+  release({ session: header, inheritedEventCount: 0, events: [e1, e2] })
+  const stale = await (await pending).json()
+  assert.equal(stale.totals.cost, 2)
+  assert.equal(stale.sessions[0].live, true)
+
+  events = [e1, e2, e3]
+  live = false
+  const final = await (await handler(request)).json()
+  assert.equal(final.totals.cost, 3)
+  assert.equal(final.sessions[0].live, false)
+  assert.equal(reads, 2)
+})
+
 test('case sensitivity follows the host filesystem semantics', () => {
   assert.notEqual(normalizeCwd('/work/Foo', 'linux'), normalizeCwd('/work/foo', 'linux'))
   assert.equal(normalizeCwd('/work/Foo', 'linux'), '/work/Foo')
   assert.equal(normalizeCwd('C:\\Work\\Foo\\', 'win32'), normalizeCwd('c:/work/foo', 'win32'))
+  assert.notEqual(normalizeCwd('/work/foo\\bar', 'linux'), normalizeCwd('/work/foo/bar', 'linux'))
 })
 
 test('project scan filters before applying maxSessions', async () => {

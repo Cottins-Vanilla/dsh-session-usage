@@ -42,6 +42,10 @@ if model starts with "deepseek" and isPeak(t):
   (usage revisions); `llm/retry-started` closes that slot so the next attempt is
   added. The previous contribution is removed from session, day, model, and turn
   buckets before the replacement is added.
+- A revision with **no usage sample** (no `data.usage` and no stream usage) keeps
+  the previous token/cost contribution and only updates the visible-message
+  count. A revision that explicitly reports zero usage replaces the contribution
+  with zero.
 
 ## Default table
 

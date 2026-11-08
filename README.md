@@ -320,7 +320,7 @@ npm run check     # structural checks only
 
 `npm test` runs `scripts/check.mjs` (manifest, exports, locale metadata, SVG
 size, Client loader id, JavaScript syntax, temporary files) and then the
-17-test `node:test` suite in `tests/usage.test.mjs`. The behavioral suite asserts
+22-test `node:test` suite in `tests/usage.test.mjs`. The behavioral suite asserts
 exact prices, peak/off-peak rates, failed-attempt accounting, same-call usage
 revisions, retry slots, stream fallback, pricing-config errors, live-to-cold tail
 sync, project-before-cap filtering, path identity, SemVer ordering, and the

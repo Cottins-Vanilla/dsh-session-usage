@@ -9,6 +9,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.4] - 2026-11-08
+
+Follow-up fixes for the v1.2.3 review. The 11 original findings still pass; this
+release closes the 5 remaining reproduced issues (N01–N05) and adds 5 behavioral
+regressions (22 total).
+
+### Fixed
+
+- **N01 — missing vs explicit-zero usage.** A message/attempt revision with no
+  usage sample now retains the prior token/cost contribution; only the visible
+  message count is updated. An explicit zero sample (including a zero attempt)
+  replaces the prior contribution with zero. Session, day, model, turn, and
+  message counts are handled separately so a revision cannot erase an existing
+  charge or keep a charge that was explicitly zeroed.
+- **N02 — stale final-sync overwrote a live reactivation.** Each live record has
+  a `liveGeneration`. A final cold sync captures the generation before reading
+  persistence and refuses to fold or mark the record cold if a newer
+  `markLive()` happened while the read was pending. The reactivated live tail is
+  preserved; a later final sync still adds the remaining persisted tail.
+- **N03 — polling cancelled every slow request.** The header chip and dashboard
+  now schedule the next poll only after the previous request settles, instead of
+  cancelling the in-flight request on a fixed tick. Manual refresh, scope/session
+  changes, and unmount still abort the active request. Request-id guards remain.
+- **N04 — chart hit testing used discrete values.** Hit testing now interpolates
+  the actual drawn line segments, does not extend a series past its last point,
+  and still rejects aggregate hits and clicks more than 24 chart units from a
+  line. Short-series blank space and steep segment midpoints now behave
+  correctly.
+- **N05 — POSIX literal backslash was treated as a separator.** Backslash-to-slash
+  normalization is now Windows-only; POSIX keeps literal backslashes while
+  retaining case sensitivity. Windows case/separator normalization is unchanged.
+
+### Added
+
+- Behavioral tests for missing usage, explicit-zero usage, stale final-sync
+  reactivation, and POSIX literal backslashes; 22 tests total.
+- Documentation for the new polling schedule, segment-based chart hit testing,
+  missing/zero sample semantics, lifecycle generation guard, and platform path
+  rules.
+
+### Changed
+
+- Bump to 1.2.4. Release notes include the v1.2.3...v1.2.4 Full Changelog link.
+
 ## [1.2.3] - 2026-11-08
 
 This release resolves the 11 findings in the 2026-11-08 source review plus the
@@ -227,7 +271,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.4
 [1.2.3]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.3
 [1.2.2]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.2
 [1.2.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.1

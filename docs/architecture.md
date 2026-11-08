@@ -59,13 +59,19 @@ Rules that matter:
   sample for that slot subtracts the previous contribution from every bucket
   before adding the revision; `llm/retry-started` clears the slot. This mirrors
   the Harness token-meter's replace-versus-retry semantics.
+- **Missing samples retain; explicit zero samples replace.** A message revision
+  with no `data.usage` and no stream usage updates only the visible-message
+  count, leaving the prior token/cost contribution intact. An explicit zero
+  sample (including a zero attempt) replaces the prior contribution with zero.
 - **A cold record is folded at most once.** `ensureRecord()`/`ensureById()` share
   a per-session load promise, and `foldCold()` refuses to fold an already loaded
   record. Two concurrent **All conversations** requests therefore read one cold
   log once and produce one total, not two.
 - **Live-to-cold gets a final tail sync.** If a cached record is still `live` but
   its live session disappears, one shared refresh reads persistence, folds only
-  events after `lastSeq`, updates `live=false`, and retries on failure.
+  events after `lastSeq`, updates `live=false`, and retries on failure. A
+  `liveGeneration` check prevents a slow stale sync from overwriting a newer
+  live reactivation.
 - **Failed attempts are billable.** An `assistant/attempt` has no
   `assistant/message`; its only token accounting is the last `usage` chunk in
   `data.stream`. Those tokens and their price are counted, while the visible

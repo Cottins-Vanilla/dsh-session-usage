@@ -596,26 +596,38 @@ window.__ModuleLoader__.load({
       const [state, setState] = React.useState({ data: null, error: '', loading: true })
       const [nonce, setNonce] = React.useState(0)
       React.useEffect(() => {
-        const controller = new AbortController()
         let alive = true
-        setState((previous) => ({ ...previous, loading: true, error: '' }))
-        queryUsage({ scope, sessionId: sessionId || undefined }, controller.signal)
-          .then((data) => {
-            if (alive) setState({ data, error: '', loading: false })
-          })
-          .catch((error) => {
-            if (!alive || error?.name === 'AbortError') return
-            setState((previous) => ({ ...previous, loading: false, error: String(error?.message || error) }))
-          })
+        let controller = null
+        let timer = null
+        const schedule = () => {
+          if (!alive) return
+          timer = window.setTimeout(load, 15000)
+        }
+        const load = () => {
+          if (!alive) return
+          if (timer) {
+            window.clearTimeout(timer)
+            timer = null
+          }
+          controller = new AbortController()
+          setState((previous) => ({ ...previous, loading: true, error: '' }))
+          queryUsage({ scope, sessionId: sessionId || undefined }, controller.signal)
+            .then((data) => {
+              if (alive) setState({ data, error: '', loading: false })
+            })
+            .catch((error) => {
+              if (!alive || error?.name === 'AbortError') return
+              setState((previous) => ({ ...previous, loading: false, error: String(error?.message || error) }))
+            })
+            .finally(schedule)
+        }
+        load()
         return () => {
           alive = false
-          controller.abort()
+          if (timer) window.clearTimeout(timer)
+          if (controller) controller.abort()
         }
       }, [scope, sessionId, nonce])
-      React.useEffect(() => {
-        const timer = window.setInterval(() => setNonce((value) => value + 1), 15000)
-        return () => window.clearInterval(timer)
-      }, [])
       return {
         ...state,
         refresh: React.useCallback(() => setNonce((value) => value + 1), []),
@@ -1030,29 +1042,50 @@ window.__ModuleLoader__.load({
         if (typeof onPick !== 'function' || mode === 'days') return
         const pointer = pointerOf(event)
         if (!pointer) return
-        const ratio = (pointer.x - padLeft) / Math.max(1, span)
-        const turn = Math.max(1, Math.min(maxTurn, Math.round(1 + ratio * (maxTurn - 1))))
         let best = null
         let bestDistance = Infinity
         for (const item of visible) {
-          let value
-          if (mode === 'turnValue') {
-            const entry = item.series.values.find((candidate) => candidate.turn === turn)
-            if (!entry) continue
-            value = entry.value
+          const values = item.series.values
+          if (!values.length) continue
+          const points = values.map((entry) => ({
+            x: xTurn(entry.turn),
+            y: yOf(entry.value),
+          }))
+          const firstX = points[0].x
+          const lastX = points[points.length - 1].x
+          if (pointer.x < Math.min(firstX, lastX) || pointer.x > Math.max(firstX, lastX)) continue
+          let lineY = null
+          if (points.length === 1) {
+            if (Math.abs(pointer.x - firstX) <= 12) lineY = points[0].y
           } else {
-            value = valueAt(item, turn)
+            for (let index = 0; index < points.length - 1; index += 1) {
+              const left = points[index]
+              const right = points[index + 1]
+              if (left.x === right.x) continue
+              const minX = Math.min(left.x, right.x)
+              const maxX = Math.max(left.x, right.x)
+              if (pointer.x < minX || pointer.x > maxX) continue
+              const ratio = (pointer.x - left.x) / (right.x - left.x)
+              lineY = left.y + (right.y - left.y) * ratio
+              break
+            }
           }
-          const distance = Math.abs(yOf(value) - pointer.y)
+          if (lineY === null) continue
+          const distance = Math.abs(lineY - pointer.y)
           if (distance < bestDistance) {
             bestDistance = distance
-            best = { item, turn }
+            best = { item, turn: Number(values[0].turn) || 1 }
           }
         }
         // The aggregate "other conversations" series is intentionally not
-        // clickable, and a click far from every line is not a hit.
+        // clickable, and a click far from every drawn line is not a hit.
         if (!best || best.item.other || bestDistance > 24) return
-        onPick({ sessionId: best.item.id, turn })
+        const nearest = best.item.series.values.reduce((current, entry) => (
+          current === null || Math.abs(xTurn(entry.turn) - pointer.x) < Math.abs(xTurn(current.turn) - pointer.x)
+            ? entry
+            : current
+        ), null)
+        onPick({ sessionId: best.item.id, turn: Number(nearest?.turn) || best.turn })
       }
 
       const safeHover = mode === 'days'
@@ -1319,8 +1352,17 @@ window.__ModuleLoader__.load({
           let alive = true
           let latestRequest = 0
           let controller = null
+          let timer = null
+          const schedule = () => {
+            if (!alive) return
+            timer = window.setTimeout(load, 8000)
+          }
           const load = () => {
-            if (controller) controller.abort()
+            if (!alive) return
+            if (timer) {
+              window.clearTimeout(timer)
+              timer = null
+            }
             controller = new AbortController()
             const requestId = ++latestRequest
             queryUsage({ scope: 'current', sessionId }, controller.signal)
@@ -1339,12 +1381,12 @@ window.__ModuleLoader__.load({
                 if (!alive || requestId !== latestRequest || error?.name === 'AbortError') return
                 setFailed(true)
               })
+              .finally(schedule)
           }
           load()
-          const timer = window.setInterval(load, 8000)
           return () => {
             alive = false
-            window.clearInterval(timer)
+            if (timer) window.clearTimeout(timer)
             if (controller) controller.abort()
           }
         }, [sessionId])

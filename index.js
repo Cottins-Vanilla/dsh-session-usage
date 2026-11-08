@@ -236,6 +236,7 @@ export function apply(ctx, config) {
 
   function markLive(record, session) {
     record.live = true
+    record.liveGeneration = (Number(record.liveGeneration) || 0) + 1
     if (session?.header?.cwd) record.cwd = session.header.cwd
     try {
       foldEvents(record, session.ownEvents(), pricing)
@@ -285,8 +286,12 @@ export function apply(ctx, config) {
   function refreshCold(record, id) {
     let pending = refreshing.get(id)
     if (!pending) {
+      const generation = Number(record.liveGeneration) || 0
       pending = (async () => {
         const snapshot = await readCold(id)
+        // A live reactivation during the read owns the newer state. The stale
+        // snapshot must not fold or mark the record cold.
+        if ((Number(record.liveGeneration) || 0) !== generation) return record
         const inherited = Math.max(0, Number(snapshot?.inheritedEventCount) || 0)
         if (inherited > record.inherited) record.inherited = inherited
         // Deliberately keep lastSeq: existing samples are already counted, and

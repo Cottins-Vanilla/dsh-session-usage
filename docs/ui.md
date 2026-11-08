@@ -72,11 +72,15 @@ disabled and a short hint is shown.
 
 ## Header chip
 
-The header chip polls every 8 seconds. Each poll has a monotonic request id and
-its own AbortController; only the newest response may update the value or mark a
-failure. If the latest poll fails after a successful value, the chip keeps that
-value but appends **数据可能已过期 / may be stale** and explains the state in
+The header chip polls every 8 seconds **after the previous request settles**. Each
+poll has a monotonic request id; only the newest response may update the value or
+mark a failure. A slow request is allowed to finish instead of being cancelled by
+the next tick. If the latest poll fails after a successful value, the chip keeps
+that value but appends **数据可能已过期 / may be stale** and explains the state in
 its title; a first-load failure still shows the ordinary error label.
+
+The dashboard follows the same completion-based schedule at 15 seconds. Manual
+refresh, scope/session changes, and unmount still abort the active request.
 
 ## Chart behavior
 
@@ -92,9 +96,10 @@ its title; a first-load failure still shows the ordinary error label.
 - Hover snaps to the nearest turn or day. The tooltip lists up to six visible
   series, sorted by value.
 - Clicking a per-turn chart point opens that conversation; inside the Usage tab
-  it selects the Chat view and addresses that turn. The aggregate “other”
-  series is not clickable, and a click more than 24 chart units from every line
-  is treated as blank space and ignored.
+  it selects the Chat view and addresses that turn. Hit testing interpolates the
+  actual drawn line segments, does not extend a series past its last point, and
+  ignores clicks more than 24 chart units from a line. The aggregate “other”
+  series is not clickable.
 - Turn navigation is bound to its target session: a pending jump is cancelled
   when the active session changes, and retries never touch a newer session's
   turn rail.

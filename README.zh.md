@@ -265,7 +265,7 @@ npm test          # 结构检查 + 计费行为测试
 npm run check     # 仅结构检查
 ```
 
-`npm test` 先运行 `scripts/check.mjs`（manifest、exports、语言元数据、SVG 大小、Client loader id、JavaScript 语法、临时文件），再运行 `tests/usage.test.mjs` 的 17 项 `node:test` 套件。行为测试会断言具体金额、峰谷价、失败尝试用量、同调用 usage 修订、重试槽、流内 usage 回退、错误配置抛错、live→cold 尾部同步、项目先过滤再截断、路径身份、SemVer 排序和并发冷加载回归；改坏计价口径会让 CI 失败。
+`npm test` 先运行 `scripts/check.mjs`（manifest、exports、语言元数据、SVG 大小、Client loader id、JavaScript 语法、临时文件），再运行 `tests/usage.test.mjs` 的 22 项 `node:test` 套件。行为测试会断言具体金额、峰谷价、失败尝试用量、同调用 usage 修订、重试槽、流内 usage 回退、错误配置抛错、live→cold 尾部同步、项目先过滤再截断、路径身份、SemVer 排序和并发冷加载回归；改坏计价口径会让 CI 失败。
 
 本地预览时，把目录作为 bundle 安装（见上文）。Client 侧修改在 bundle 重载后刷新页面即可；Host
 侧修改需要切换插件或重启应用。

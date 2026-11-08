@@ -67,8 +67,8 @@ being silently dropped. Top-level fields remain optional and merge with defaults
 array means **no peak windows**, not "use the defaults".
 
 Current-project identity follows the host filesystem: Windows compares paths
-case-insensitively, while POSIX keeps case. Backslashes are normalized to `/` and
-trailing separators are ignored.
+case-insensitively and treats backslashes as separators, while POSIX keeps case
+and preserves a literal backslash in a filename. Trailing separators are ignored.
 
 There is no separate cache-write rate: `cacheWriteTokens` is billed at the
 `miss` rate. This is correct for the current DeepSeek table, where cache writes
