@@ -95,11 +95,11 @@ refresh, scope/session changes, and unmount still abort the active request.
   By-turn mode).
 - Hover snaps to the nearest turn or day. The tooltip lists up to six visible
   series, sorted by value.
-- Clicking a per-turn chart point opens that conversation; inside the Usage tab
-  it selects the Chat view and addresses that turn. Hit testing interpolates the
-  actual drawn line segments, does not extend a series past its last point, and
-  ignores clicks more than 24 chart units from a line. The aggregate “other”
-  series is not clickable.
+- Clicking a data point's exact centre opens that conversation; inside the Usage
+  tab it selects the Chat view and addresses that turn. Other positions inside a
+  dot, line segments, the aggregate “other” series, and blank space do not
+  trigger. The hit test uses the actual rendered point centres, not interpolated
+  line or nearby-point tolerances.
 - Turn navigation is bound to its target session: a pending jump is cancelled
   when the active session changes, and retries never touch a newer session's
   turn rail.

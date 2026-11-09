@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.5] - 2026-11-09
+
+Follow-up fixes for the v1.2.4 review. N01/N02/N03/N05 from the previous round
+remain fixed; this release closes R01–R03.
+
+### Fixed
+
+- **R01 — POSIX root project was treated as "no filter".** `normalizeCwd('/')`
+  now returns `/` instead of an empty key, so the project filter stays active.
+  Windows drive roots normalize to `c:/`. `readAll` uses `null` (not `''`) for
+  "no cwd filter"; root directory sessions are filtered before `maxSessions` and
+  no longer share the unknown-cwd identity.
+- **R02 — external cold-log updates were cached forever.** Cold records now
+  revalidate after five minutes, and the panel's manual refresh sends
+  `refresh: true` to force a persisted re-read. A changed cold source is folded
+  through the same shared refresh path; unchanged caches are reused.
+- **R03 — non-centre chart clicks still navigated.** Chart click targets are now
+  the exact rendered data-point centres (distance < 1 SVG unit). Other positions
+  inside a dot, line segments, aggregate points, and blank space do not trigger.
+
+### Added
+
+- Host regressions for a root-directory project being filtered before
+  `maxSessions`, and for forced revalidation of an externally updated cold log.
+- 24 behavioral tests total.
+
+### Changed
+
+- Documentation for root path identity, cold revalidation/manual refresh, and
+  centre-only chart hit testing.
+- Version 1.2.5; release notes include the v1.2.4...v1.2.5 Full Changelog link.
+
 ## [1.2.4] - 2026-11-08
 
 Follow-up fixes for the v1.2.3 review. The 11 original findings still pass; this
@@ -271,7 +303,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.4...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.5...HEAD
+[1.2.5]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.5
 [1.2.4]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.4
 [1.2.3]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.3
 [1.2.2]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.2

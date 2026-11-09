@@ -418,11 +418,66 @@ test('a stale final sync cannot overwrite a live reactivation', async () => {
   assert.equal(reads, 2)
 })
 
+test('an explicit refresh revalidates an externally updated cold log', async () => {
+  let reads = 0
+  const header = { id: 's1', cwd: 'E:/demo', createdAt: 1 }
+  const e1 = messageEvent(1, usage(1_000_000))
+  const e2 = messageEvent(2, usage(1_000_000))
+  e2.data.turn = 2
+  let events = [e1]
+  const routes = new Map()
+  const ctx = {
+    get(name) {
+      if (name === 'sessions') return { list: () => [] }
+      if (name === 'sessionQuery') {
+        return {
+          listSessions: async () => [{ header }],
+          readSession: async () => {
+            reads += 1
+            return { session: header, inheritedEventCount: 0, events: events.slice() }
+          },
+        }
+      }
+      return undefined
+    },
+    inject(names, callback) {
+      if (!names.includes('connection')) return
+      const connectionCtx = {
+        get: (name) => name === 'connection'
+          ? { fetch: { register: (options) => { routes.set(options.path, options) } } }
+          : undefined,
+        effect: (fn) => fn(),
+      }
+      callback(connectionCtx)
+    },
+  }
+  apply(ctx, {})
+  const handler = routes.get('/api/session-usage/query').fetch
+  const request = { json: async () => ({ scope: 'all' }) }
+
+  const first = await (await handler(request)).json()
+  assert.equal(first.totals.cost, 1)
+  assert.equal(reads, 1)
+
+  events = [e1, e2]
+  const cached = await (await handler(request)).json()
+  assert.equal(cached.totals.cost, 1)
+  assert.equal(reads, 1)
+
+  const forced = await (await handler({ json: async () => ({ scope: 'all', refresh: true }) })).json()
+  assert.equal(forced.totals.cost, 2)
+  assert.equal(reads, 2)
+})
+
 test('case sensitivity follows the host filesystem semantics', () => {
   assert.notEqual(normalizeCwd('/work/Foo', 'linux'), normalizeCwd('/work/foo', 'linux'))
   assert.equal(normalizeCwd('/work/Foo', 'linux'), '/work/Foo')
   assert.equal(normalizeCwd('C:\\Work\\Foo\\', 'win32'), normalizeCwd('c:/work/foo', 'win32'))
   assert.notEqual(normalizeCwd('/work/foo\\bar', 'linux'), normalizeCwd('/work/foo/bar', 'linux'))
+  assert.equal(normalizeCwd('/', 'linux'), '/')
+  assert.equal(normalizeCwd('///', 'linux'), '/')
+  assert.notEqual(normalizeCwd('/', 'linux'), normalizeCwd('', 'linux'))
+  assert.equal(normalizeCwd('C:\\', 'win32'), 'c:/')
 })
 
 test('project scan filters before applying maxSessions', async () => {
@@ -468,6 +523,50 @@ test('project scan filters before applying maxSessions', async () => {
   assert.equal(body.totals.tokens, 2_000_000)
   assert.equal(body.totals.cost, 2)
   assert.equal(body.warnings.length, 0)
+})
+
+test('a root-directory project is filtered before maxSessions', async () => {
+  const headers = [
+    { id: 'b0', cwd: '/other', createdAt: 1 },
+    { id: 'b1', cwd: '/other', createdAt: 2 },
+    { id: 'a0', cwd: '/', createdAt: 3 },
+    { id: 'a1', cwd: '/', createdAt: 4 },
+  ]
+  const byId = new Map(headers.map((header) => [header.id, header]))
+  const routes = new Map()
+  const ctx = {
+    get(name) {
+      if (name === 'sessions') return { list: () => [] }
+      if (name === 'sessionQuery') {
+        return {
+          listSessions: async () => headers.map((header) => ({ header })),
+          readSession: async (id) => ({
+            session: byId.get(id),
+            inheritedEventCount: 0,
+            events: [messageEvent(1, usage(1_000_000))],
+          }),
+        }
+      }
+      return undefined
+    },
+    inject(names, callback) {
+      if (!names.includes('connection')) return
+      const connectionCtx = {
+        get: (name) => name === 'connection'
+          ? { fetch: { register: (options) => { routes.set(options.path, options) } } }
+          : undefined,
+        effect: (fn) => fn(),
+      }
+      callback(connectionCtx)
+    },
+  }
+  apply(ctx, { maxSessions: 2 })
+  const handler = routes.get('/api/session-usage/query').fetch
+  const response = await handler({ json: async () => ({ scope: 'project', sessionId: 'a0' }) })
+  const body = await response.json()
+  assert.equal(body.totals.sessions, 2)
+  assert.equal(body.totals.tokens, 2_000_000)
+  assert.equal(body.totals.cost, 2)
 })
 
 test('SemVer parsing is complete and prerelease ordering follows the spec', () => {

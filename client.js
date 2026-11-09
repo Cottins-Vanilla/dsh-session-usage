@@ -595,6 +595,7 @@ window.__ModuleLoader__.load({
     function useQuery(ctx, scope, sessionId) {
       const [state, setState] = React.useState({ data: null, error: '', loading: true })
       const [nonce, setNonce] = React.useState(0)
+      const forceNext = React.useRef(false)
       React.useEffect(() => {
         let alive = true
         let controller = null
@@ -610,8 +611,10 @@ window.__ModuleLoader__.load({
             timer = null
           }
           controller = new AbortController()
+          const force = forceNext.current
+          forceNext.current = false
           setState((previous) => ({ ...previous, loading: true, error: '' }))
-          queryUsage({ scope, sessionId: sessionId || undefined }, controller.signal)
+          queryUsage({ scope, sessionId: sessionId || undefined, refresh: force }, controller.signal)
             .then((data) => {
               if (alive) setState({ data, error: '', loading: false })
             })
@@ -630,7 +633,10 @@ window.__ModuleLoader__.load({
       }, [scope, sessionId, nonce])
       return {
         ...state,
-        refresh: React.useCallback(() => setNonce((value) => value + 1), []),
+        refresh: React.useCallback(() => {
+          forceNext.current = true
+          setNonce((value) => value + 1)
+        }, []),
       }
     }
 
@@ -1045,47 +1051,21 @@ window.__ModuleLoader__.load({
         let best = null
         let bestDistance = Infinity
         for (const item of visible) {
-          const values = item.series.values
-          if (!values.length) continue
-          const points = values.map((entry) => ({
-            x: xTurn(entry.turn),
-            y: yOf(entry.value),
-          }))
-          const firstX = points[0].x
-          const lastX = points[points.length - 1].x
-          if (pointer.x < Math.min(firstX, lastX) || pointer.x > Math.max(firstX, lastX)) continue
-          let lineY = null
-          if (points.length === 1) {
-            if (Math.abs(pointer.x - firstX) <= 12) lineY = points[0].y
-          } else {
-            for (let index = 0; index < points.length - 1; index += 1) {
-              const left = points[index]
-              const right = points[index + 1]
-              if (left.x === right.x) continue
-              const minX = Math.min(left.x, right.x)
-              const maxX = Math.max(left.x, right.x)
-              if (pointer.x < minX || pointer.x > maxX) continue
-              const ratio = (pointer.x - left.x) / (right.x - left.x)
-              lineY = left.y + (right.y - left.y) * ratio
-              break
+          for (const entry of item.series.values) {
+            const distance = Math.hypot(
+              pointer.x - xTurn(entry.turn),
+              pointer.y - yOf(entry.value),
+            )
+            if (distance < bestDistance) {
+              bestDistance = distance
+              best = { item, turn: Number(entry.turn) || 1 }
             }
           }
-          if (lineY === null) continue
-          const distance = Math.abs(lineY - pointer.y)
-          if (distance < bestDistance) {
-            bestDistance = distance
-            best = { item, turn: Number(values[0].turn) || 1 }
-          }
         }
-        // The aggregate "other conversations" series is intentionally not
-        // clickable, and a click far from every drawn line is not a hit.
-        if (!best || best.item.other || bestDistance > 24) return
-        const nearest = best.item.series.values.reduce((current, entry) => (
-          current === null || Math.abs(xTurn(entry.turn) - pointer.x) < Math.abs(xTurn(current.turn) - pointer.x)
-            ? entry
-            : current
-        ), null)
-        onPick({ sessionId: best.item.id, turn: Number(nearest?.turn) || best.turn })
+        // Only the exact data-point centre is a target. Aggregate points,
+        // other positions inside a dot, line segments, and blank space are not.
+        if (!best || best.item.other || bestDistance >= 1) return
+        onPick({ sessionId: best.item.id, turn: best.turn })
       }
 
       const safeHover = mode === 'days'

@@ -31,6 +31,7 @@ const DEFAULT_MAX_SESSIONS = 400
 const DEFAULT_CHART_DAYS = 14
 const READ_CONCURRENCY = 3
 const TURN_SERIES_LIMIT = 8
+const COLD_REVALIDATE_MS = 5 * 60 * 1000
 
 function readPackageVersion() {
   try {
@@ -253,6 +254,7 @@ export function apply(ctx, config) {
     record.lastSeq = inherited - 1
     foldEvents(record, snapshot?.events, pricing)
     record.loaded = true
+    record.coldAt = Date.now()
     return record
   }
 
@@ -299,6 +301,7 @@ export function apply(ctx, config) {
         foldEvents(record, snapshot?.events, pricing)
         record.loaded = true
         record.live = false
+        record.coldAt = Date.now()
         return record
       })().finally(() => {
         if (refreshing.get(id) === pending) refreshing.delete(id)
@@ -307,15 +310,22 @@ export function apply(ctx, config) {
     }
     return pending
   }
-  /** Ensure a record for a listed header, reading and folding the cold log only once. */
-  async function ensureRecord(header, liveMap) {
+  /** Ensure a record for a listed header, reading and folding the cold log once. */
+  async function ensureRecord(header, liveMap, force = false) {
     const id = header.id
     const session = liveMap.get(id)
     const existing = cache.get(id)
     if (existing) {
-      if (session) markLive(existing, session)
-      else if (existing.live && existing.loaded) return refreshCold(existing, id)
-      if (existing.loaded) return existing
+      if (session) {
+        markLive(existing, session)
+        if (existing.loaded) return existing
+      } else if (existing.loaded) {
+        if (existing.live) return refreshCold(existing, id)
+        if (force || Date.now() - (Number(existing.coldAt) || 0) >= COLD_REVALIDATE_MS) {
+          return refreshCold(existing, id)
+        }
+        return existing
+      }
     } else if (session) {
       const record = createRecord(session.header ?? header, session.inheritedEventCount ?? 0)
       cache.set(id, record)
@@ -326,13 +336,20 @@ export function apply(ctx, config) {
   }
 
   /** Ensure a record by id even when it is not in the newest-N listing. */
-  async function ensureById(id, liveMap) {
+  async function ensureById(id, liveMap, force = false) {
     const session = liveMap.get(id)
     const existing = cache.get(id)
     if (existing) {
-      if (session) markLive(existing, session)
-      else if (existing.live && existing.loaded) return refreshCold(existing, id)
-      if (existing.loaded) return existing
+      if (session) {
+        markLive(existing, session)
+        if (existing.loaded) return existing
+      } else if (existing.loaded) {
+        if (existing.live) return refreshCold(existing, id)
+        if (force || Date.now() - (Number(existing.coldAt) || 0) >= COLD_REVALIDATE_MS) {
+          return refreshCold(existing, id)
+        }
+        return existing
+      }
     } else if (session) {
       const record = createRecord(session.header, session.inheritedEventCount)
       cache.set(id, record)
@@ -342,7 +359,7 @@ export function apply(ctx, config) {
     return coldLoad(id, { id }, session)
   }
 
-  async function readAll(liveMap, onlyCwd = '') {
+  async function readAll(liveMap, onlyCwd = null, force = false) {
     const query = sessionQuery()
     if (!query || typeof query.listSessions !== 'function') {
       throw new Error('The session query service is unavailable, so the session list cannot be read.')
@@ -350,12 +367,12 @@ export function apply(ctx, config) {
     const listed = await query.listSessions()
     const headers = (Array.isArray(listed) ? listed : [])
       .map((entry) => entry.header)
-      .filter((header) => !onlyCwd || normalizeCwd(header?.cwd) === onlyCwd)
+      .filter((header) => onlyCwd === null || normalizeCwd(header?.cwd) === onlyCwd)
       .slice(0, maxSessions)
     const known = new Set(headers.map((header) => header.id))
     for (const session of liveMap.values()) {
       if (session?.header && !known.has(session.id)
-        && (!onlyCwd || normalizeCwd(session.header.cwd) === onlyCwd)) {
+        && (onlyCwd === null || normalizeCwd(session.header.cwd) === onlyCwd)) {
         headers.push(session.header)
         known.add(session.id)
       }
@@ -370,7 +387,7 @@ export function apply(ctx, config) {
         if (index >= headers.length) return
         const header = headers[index]
         try {
-          results.push(await ensureRecord(header, liveMap))
+          results.push(await ensureRecord(header, liveMap, force))
         } catch (error) {
           warnings.push(`${header?.id || 'session'}: ${messageOf(error)}`)
         }
@@ -476,7 +493,7 @@ export function apply(ctx, config) {
     }
   }
 
-  async function build(scope, sessionId) {
+  async function build(scope, sessionId, force = false) {
     const liveMap = liveSessions()
     const today = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10)
 
@@ -498,7 +515,7 @@ export function apply(ctx, config) {
           warnings: [],
         }
       }
-      const current = await ensureById(sessionId, liveMap)
+      const current = await ensureById(sessionId, liveMap, force)
       if (scope === 'current') {
         return {
           ok: true,
@@ -518,7 +535,7 @@ export function apply(ctx, config) {
         }
       }
       const cwd = normalizeCwd(current.cwd)
-      const listed = await readAll(liveMap, cwd)
+      const listed = await readAll(liveMap, cwd || null, force)
       let records = listed.records.filter((record) => normalizeCwd(record.cwd) === cwd)
       if (!records.some((record) => record.id === current.id)) records = [current, ...records]
       records = records.filter(hasUsage)
@@ -539,7 +556,7 @@ export function apply(ctx, config) {
       }
     }
 
-    const listed = await readAll(liveMap)
+    const listed = await readAll(liveMap, null, force)
     const records = listed.records.filter(hasUsage)
     return {
       ok: true,
@@ -569,7 +586,7 @@ export function apply(ctx, config) {
       }
       const scope = payload.scope === 'current' || payload.scope === 'project' ? payload.scope : 'all'
       const sessionId = typeof payload.sessionId === 'string' ? payload.sessionId : ''
-      return json(await build(scope, sessionId))
+      return json(await build(scope, sessionId, payload.refresh === true))
     } catch (error) {
       return json({ ok: false, error: { code: 'session-usage/failed', message: messageOf(error) } })
     }

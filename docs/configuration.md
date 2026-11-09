@@ -68,7 +68,9 @@ array means **no peak windows**, not "use the defaults".
 
 Current-project identity follows the host filesystem: Windows compares paths
 case-insensitively and treats backslashes as separators, while POSIX keeps case
-and preserves a literal backslash in a filename. Trailing separators are ignored.
+and preserves a literal backslash in a filename. A POSIX root stays `/`
+(Windows drive roots use `c:/`) and is distinct from an unknown/empty cwd;
+trailing separators are ignored.
 
 There is no separate cache-write rate: `cacheWriteTokens` is billed at the
 `miss` rate. This is correct for the current DeepSeek table, where cache writes

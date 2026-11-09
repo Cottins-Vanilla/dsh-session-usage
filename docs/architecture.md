@@ -95,6 +95,10 @@ Rules that matter:
   already passed the load check cannot re-fold a completed snapshot.
 - A separate refresh map shares the live-to-cold tail sync; it preserves
   `lastSeq`, folds only new persisted events, and sets `live=false`.
+- Cold records are revalidated after five minutes, and the panel's manual
+  refresh sends `refresh: true` to force a re-read of cold logs. This covers
+  persistence updated by another Host/CLI that never appeared in this Host's
+  live list.
 - Live sessions are folded from `session.ownEvents()` on each query; `lastSeq`
   makes this incremental.
 - The cache is not persisted. Restarting the Host or reloading the plugin
