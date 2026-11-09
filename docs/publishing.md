@@ -48,7 +48,7 @@ Do not commit a token, `.npmrc`, or a generated tarball.
 The project has no build step. A source tag is the release.
 
 ```sh
-git tag -a v1.3.0 -m "Session usage 1.3.0"
+git tag -a v1.3.1 -m "Session usage 1.3.1"
 git push origin main --tags
 ```
 
@@ -59,9 +59,9 @@ version; the CHANGELOG remains the full history.
 Manual fallback:
 
 1. Open **Releases → Draft a new release**.
-2. Choose tag `v1.3.0`.
-3. Title: `Session usage 1.3.0`.
-4. Use `RELEASE_NOTES.md` or copy the `[1.3.0]` section from `CHANGELOG.md`.
+2. Choose tag `v1.3.1`.
+3. Title: `Session usage 1.3.1`.
+4. Use `RELEASE_NOTES.md` or copy the `[1.3.1]` section from `CHANGELOG.md`.
 5. Attach no binary; GitHub's source archive is enough.
 6. Mark it **Latest**.
 

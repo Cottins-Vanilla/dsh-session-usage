@@ -270,7 +270,7 @@ window.__ModuleLoader__.load({
 .dsu-mode{flex:none}
 .dsu-mode .dsu-seg-btn{height:22px;padding:0 8px;font-size:11px}
 .dsu-range{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
-.dsu-range-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;margin:2px 0 8px}
+.dsu-range-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;width:100%;margin:2px 0 8px}
 .dsu-range-label{font-size:11px;color:var(--dsw-alias-label-secondary)}
 .dsu-range>.dsu-seg-btn{border:1px solid var(--dsw-alias-border-l1);border-radius:6px;height:22px;padding:0 8px;font-size:11px}
 .dsu-range-input{width:104px;height:22px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 6px}
@@ -1790,7 +1790,7 @@ window.__ModuleLoader__.load({
             ? (effectiveScope === 'current' ? '' : t('chart.seriesNote'))
             : (data ? `${t('chart.window')} ${data.chartDays || daily.length} ${t('unit.days')}` : '')
 
-        const rangeEnabled = (effectiveScope === 'project' || effectiveScope === 'all') && chartMode === 'turns'
+        const rangeEnabled = chartMode !== 'days'
         const rangeControl = rangeEnabled
           ? h('div', { className: 'dsu-range' },
             h('span', { className: 'dsu-range-label' }, t('chart.range')),

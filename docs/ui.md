@@ -98,13 +98,14 @@ refresh, scope/session changes, and unmount still abort the active request.
   stays inside the visible chart area, and lists every visible series (not a
   silent top-six slice). It does not change chart height or cover the chart
   from a fixed top position.
-- **Display range** appears as its own row below the mode switch for **All
-  conversations** and **Current project** in By-turn mode only. **不限 / All**
-  is the default; entering a positive N limits the horizontal viewport to about
-  N turns, with native horizontal scrolling through the full original turn axis.
-  The cumulative series still accumulates from the real first turn; scrolling
-  never rebases the values. Invalid input leaves the current range unchanged and
-  shows a short error. Current conversation and Daily mode never apply it.
+- **Display range** appears as its own row below the mode switch for every
+  per-turn mode: Current conversation (**每轮值 / 每轮累计**), Current project and
+  All conversations (**每轮累计**). **不限 / All** is the default; entering a
+  positive N limits the horizontal viewport to about N turns, with native
+  horizontal scrolling through the full original turn axis. The cumulative
+  series still accumulates from the real first turn; scrolling never rebases the
+  values. Invalid input leaves the current range unchanged and shows a short
+  error. Daily mode never applies it.
 - No solid data-point markers are drawn in the default state. Hovering a column
   shows the hollow point(s) at that turn (background fill, series-colour stroke)
   for the visible series; project/all use the same hover-only marker. Daily mode

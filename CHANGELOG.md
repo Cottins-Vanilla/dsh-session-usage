@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.3.1] - 2026-11-09
+
+### Fixed
+
+- **Current conversation now uses the display range too.** The range control is
+  available for Current conversation's **每轮值** and **每轮累计**, and for
+  Current project / All conversations' **每轮累计**. Daily mode still hides it
+  and applies no limit.
+- The range row is right-aligned instead of left-aligned.
+
 ## [1.3.0] - 2026-11-09
 
 Display/range release. Host accounting is unchanged.
@@ -361,7 +371,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.1
 [1.3.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.0
 [1.2.6]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.6
 [1.2.5]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.5
