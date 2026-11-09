@@ -61,10 +61,14 @@ window.__ModuleLoader__.load({
         'chart.modeTurnValue': '每轮值',
         'chart.turnValue': '每轮值',
         'chart.perTurn': '单轮消耗，不累计',
-        'chart.clickHint': '点击数据点圆心跳转到对应对话或轮次',
+        'chart.clickHint': '点击数据点跳转到对应对话或轮次',
         'chart.otherPrefix': '其他',
         'chart.legendHint': '点击图例可隐藏或显示对应对话',
         'chart.seriesNote': '最多显示 8 个对话',
+        'chart.range': '显示范围',
+        'chart.rangeAll': '不限',
+        'chart.rangePlaceholder': '每屏 N 轮',
+        'chart.rangeInvalid': '请输入正整数',
         'unit.conversations': '个对话',
         'turn.label': '当前对话',
         'turn.turnLabel': '本轮',
@@ -153,10 +157,14 @@ window.__ModuleLoader__.load({
         'chart.modeTurnValue': 'Per-turn',
         'chart.turnValue': 'Per-turn value',
         'chart.perTurn': 'Single turn, not cumulative',
-        'chart.clickHint': 'Click a data-point centre to open the conversation or turn',
+        'chart.clickHint': 'Click a data point to open the conversation or turn',
         'chart.otherPrefix': 'Other',
         'chart.legendHint': 'Click a legend item to hide or show that conversation',
         'chart.seriesNote': 'up to 8 conversations',
+        'chart.range': 'Range',
+        'chart.rangeAll': 'All',
+        'chart.rangePlaceholder': 'Turns per view',
+        'chart.rangeInvalid': 'Enter a positive integer',
         'unit.conversations': 'conversations',
         'turn.label': 'Conversation',
         'turn.turnLabel': 'this turn',
@@ -261,10 +269,17 @@ window.__ModuleLoader__.load({
 .dsu-card-note{font-size:11px;color:var(--dsw-alias-label-secondary);white-space:normal}
 .dsu-mode{flex:none}
 .dsu-mode .dsu-seg-btn{height:22px;padding:0 8px;font-size:11px}
+.dsu-range{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+.dsu-range-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%;margin:2px 0 8px}
+.dsu-range-label{font-size:11px;color:var(--dsw-alias-label-secondary)}
+.dsu-range>.dsu-seg-btn{border:1px solid var(--dsw-alias-border-l1);border-radius:6px;height:22px;padding:0 8px;font-size:11px}
+.dsu-range-input{width:104px;height:22px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 6px}
+.dsu-range-error{font-size:10.5px;color:var(--dsw-alias-state-error-primary)}
 .dsu-chart-wrap{position:relative;width:100%}
+.dsu-chart-scroll{width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+.dsu-chart-viewport{position:relative}
 .dsu-chart{display:block;width:100%;height:auto;overflow:visible}
-.dsu-tip{position:absolute;top:4px;transform:translateX(-50%);background:var(--dsw-alias-bg-overlay);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:6px 8px;font-size:11px;line-height:1.4;white-space:normal;pointer-events:none;z-index:2;min-width:150px;max-width:300px}
-.dsu-tip.dsu-tip-inline{position:static;transform:none;left:auto;top:auto;width:auto;min-width:0;max-width:none;min-height:34px;margin-top:8px;padding:8px 10px;background:var(--dsw-alias-bg-layer-2)}
+.dsu-tip{position:absolute;top:4px;background:var(--dsw-alias-bg-overlay);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:6px 8px;font-size:11px;line-height:1.4;white-space:normal;pointer-events:none;z-index:3;min-width:150px;max-width:min(300px, calc(100% - 8px))}
 .dsu-tip-head{font-size:10.5px;font-weight:600;color:var(--dsw-alias-label-secondary);margin-bottom:3px}
 .dsu-tip-row{display:grid;grid-template-columns:7px minmax(0,1fr) auto;gap:6px;align-items:center}
 .dsu-tip-dot{width:6px;height:6px;border-radius:50%}
@@ -928,8 +943,8 @@ window.__ModuleLoader__.load({
       return { values, total }
     }
 
-    function UsageChart({ mode, daily, turns, metric, symbol, t, showProject, hollowPoints, onPick }) {
-      const width = 760
+    function UsageChart({ mode, daily, turns, metric, symbol, t, showProject, turnWindow, rangeNonce, sessionKey, onPick }) {
+      const width0 = 760
       const height = 252
       const padLeft = 58
       const padRight = 16
@@ -937,8 +952,13 @@ window.__ModuleLoader__.load({
       const padBottom = 30
       const baseY = height - padBottom
       const [hover, setHover] = React.useState(-1)
-      const [pointer, setPointer] = React.useState(null)
       const [hidden, setHidden] = React.useState(() => new Set())
+      const [tip, setTip] = React.useState(null)
+      const [tipPos, setTipPos] = React.useState(null)
+      const wrapRef = React.useRef(null)
+      const scrollRef = React.useRef(null)
+      const tipRef = React.useRef(null)
+      let width = width0
 
       const dailyPoints = React.useMemo(() => (Array.isArray(daily) ? daily : []), [daily])
       const items = React.useMemo(() => {
@@ -1005,6 +1025,15 @@ window.__ModuleLoader__.load({
         }
       }
       const max = niceMax(peak)
+      const TURN_STEP = 42
+      const limited = mode !== 'days' && Number.isSafeInteger(turnWindow) && turnWindow > 0
+      const contentWidth = limited
+        ? Math.max(padLeft + padRight + TURN_STEP, padLeft + padRight + Math.max(1, maxTurn - 1) * TURN_STEP)
+        : width0
+      const viewportWidth = limited
+        ? Math.min(contentWidth, padLeft + padRight + Math.max(1, turnWindow) * TURN_STEP)
+        : width0
+      width = contentWidth
       const span = width - padLeft - padRight
       const xDay = (index) => (dailyPoints.length <= 1
         ? padLeft + span / 2
@@ -1028,10 +1057,16 @@ window.__ModuleLoader__.load({
       function onMove(event) {
         const pointer = pointerOf(event)
         if (!pointer) return
-        setPointer(pointer)
+        const wrap = wrapRef.current
+        if (wrap) {
+          const rect = wrap.getBoundingClientRect()
+          setTip({ x: event.clientX - rect.left, y: event.clientY - rect.top })
+        }
         if (pointer.x < padLeft || pointer.x > width - padRight
           || pointer.y < padTop || pointer.y > baseY) {
           setHover(-1)
+          setTip(null)
+          setTipPos(null)
           return
         }
         if (mode === 'days') {
@@ -1050,34 +1085,6 @@ window.__ModuleLoader__.load({
         }
         const ratio = (pointer.x - padLeft) / Math.max(1, span)
         setHover(Math.max(1, Math.min(maxTurn, Math.round(1 + ratio * (maxTurn - 1)))))
-      }
-
-      const CENTER_EPSILON = 0.01
-
-      function hitPoint(position) {
-        if (!position) return null
-        let best = null
-        let bestDistance = Infinity
-        for (const item of visible) {
-          for (const entry of item.series.values) {
-            const distance = Math.hypot(
-              position.x - xTurn(entry.turn),
-              position.y - yOf(entry.value),
-            )
-            if (distance < bestDistance) {
-              bestDistance = distance
-              best = { item, turn: Number(entry.turn) || 1 }
-            }
-          }
-        }
-        if (!best || best.item.other || bestDistance > CENTER_EPSILON) return null
-        return best
-      }
-
-      function onClick(event) {
-        if (typeof onPick !== 'function' || mode === 'days') return
-        const target = hitPoint(pointerOf(event))
-        if (target) onPick({ sessionId: target.item.id, turn: target.turn })
       }
 
       const safeHover = mode === 'days'
@@ -1155,8 +1162,39 @@ window.__ModuleLoader__.load({
         }
       }
 
+      React.useEffect(() => {
+        if (scrollRef.current) scrollRef.current.scrollLeft = 0
+      }, [turnWindow, rangeNonce, sessionKey])
+
+      React.useLayoutEffect(() => {
+        const wrap = wrapRef.current
+        const card = tipRef.current
+        if (!wrap || !card || !tip || safeHover < 0) return
+        const wrapRect = wrap.getBoundingClientRect()
+        const area = (scrollRef.current || wrap).getBoundingClientRect()
+        const areaLeft = area.left - wrapRect.left
+        const areaTop = area.top - wrapRect.top
+        const areaWidth = area.width
+        const areaHeight = area.height
+        const cardWidth = card.offsetWidth
+        const cardHeight = card.offsetHeight
+        const gap = 12
+        const edge = 4
+        let left = tip.x + gap
+        if (left + cardWidth > areaLeft + areaWidth - edge) left = tip.x - gap - cardWidth
+        left = Math.max(areaLeft + edge, Math.min(left, areaLeft + areaWidth - cardWidth - edge))
+        let top = tip.y + gap
+        if (top + cardHeight > areaTop + areaHeight - edge) top = tip.y - gap - cardHeight
+        top = Math.max(areaTop + edge, Math.min(top, areaTop + areaHeight - cardHeight - edge))
+        setTipPos((previous) => (
+          previous && Math.abs(previous.left - left) < 0.5 && Math.abs(previous.top - top) < 0.5
+            ? previous
+            : { left, top }
+        ))
+      }, [tip, safeHover, tooltipRows.length])
+
       const labelStepDays = Math.max(1, Math.ceil(dailyPoints.length / 7))
-      const labelStepTurns = Math.max(1, Math.ceil(maxTurn / 8))
+      const labelStepTurns = Math.max(1, Math.ceil((limited ? turnWindow : maxTurn) / 8))
       const turnLabelValues = []
       if (mode === 'turns' || mode === 'turnValue') {
         turnLabelValues.push(1)
@@ -1164,22 +1202,35 @@ window.__ModuleLoader__.load({
         if (maxTurn > 1 && turnLabelValues[turnLabelValues.length - 1] !== maxTurn) turnLabelValues.push(maxTurn)
       }
 
-      const canPick = typeof onPick === 'function' && mode !== 'days' && !!hitPoint(pointer)
-
-      return h('div', { className: 'dsu-chart-wrap' },
-        h('svg', {
-          className: 'dsu-chart',
-          viewBox: `0 0 ${width} ${height}`,
-          role: 'img',
-          'aria-label': t(mode === 'days' ? 'chart.days' : (mode === 'turnValue' ? 'chart.turnValue' : 'chart.turns')),
-          onMouseMove: onMove,
-          onMouseLeave: () => {
-            setPointer(null)
+      return h('div', { className: 'dsu-chart-wrap', ref: wrapRef },
+        h('div', {
+          className: 'dsu-chart-scroll',
+          ref: scrollRef,
+          onScroll: () => {
             setHover(-1)
+            setTip(null)
+            setTipPos(null)
           },
-          onClick,
-          style: canPick ? { cursor: 'pointer' } : { cursor: 'default' },
         },
+          h('div', {
+            className: 'dsu-chart-viewport',
+            style: limited ? { width: `${viewportWidth}px` } : { width: '100%' },
+          },
+            h('svg', {
+              className: 'dsu-chart',
+              viewBox: `0 0 ${width} ${height}`,
+              role: 'img',
+              'aria-label': t(mode === 'days' ? 'chart.days' : (mode === 'turnValue' ? 'chart.turnValue' : 'chart.turns')),
+              onMouseMove: onMove,
+              onMouseLeave: () => {
+                setHover(-1)
+                setTip(null)
+                setTipPos(null)
+              },
+              style: limited
+                ? { width: `${contentWidth}px`, height: `${height}px` }
+                : { width: '100%', height: 'auto' },
+            },
           typeof onPick === 'function' && mode !== 'days'
             ? h('title', null, t('chart.clickHint'))
             : null,
@@ -1257,15 +1308,23 @@ window.__ModuleLoader__.load({
                 : null))
             : visible.map((item) => h(React.Fragment, { key: `dots-${item.id}` },
               item.series.values.map((entry) => {
-                const hollow = !!hollowPoints
+                if (safeHover !== entry.turn) return null
+                const clickable = typeof onPick === 'function' && !item.other
                 return h('circle', {
                   key: `dot-${item.id}-${entry.turn}`,
                   cx: xTurn(entry.turn),
                   cy: yOf(entry.value),
-                  r: safeHover === entry.turn ? 3.6 : 2.2,
-                  fill: hollow ? 'var(--dsw-alias-bg-base)' : item.color,
-                  stroke: hollow ? item.color : 'none',
-                  strokeWidth: hollow ? 1.8 : 0,
+                  r: 3.6,
+                  fill: 'var(--dsw-alias-bg-base)',
+                  stroke: item.color,
+                  strokeWidth: 1.8,
+                  style: clickable ? { cursor: 'pointer' } : undefined,
+                  onClick: clickable
+                    ? (event) => {
+                      event.stopPropagation()
+                      onPick({ sessionId: item.id, turn: Number(entry.turn) || 1 })
+                    }
+                    : undefined,
                 })
               }),
             )),
@@ -1300,24 +1359,32 @@ window.__ModuleLoader__.load({
               strokeDasharray: '3 3',
             })
             : null,
+            ),
+          ),
         ),
-        h('div', { className: 'dsu-tip dsu-tip-inline' },
-          safeHover >= 0
-            ? h(React.Fragment, null,
-              h('div', { className: 'dsu-tip-head' },
-                mode === 'days' ? (dailyPoints[safeHover]?.day || dailyPoints[safeHover]?.label) : `T${safeHover}`,
-              ),
-              tooltipRows.map((row) => h('div', { key: row.key, className: 'dsu-tip-row' },
-                h('span', { className: 'dsu-tip-dot', style: { background: row.color } }),
-                h('span', { className: 'dsu-tip-name' }, row.label),
-                h('span', { className: 'dsu-tip-value' }, formatRaw(row.value, metric, symbol)),
-              )),
-              mode === 'days' && dailyPoints[safeHover]
-                ? h('div', { className: 'dsu-tip-foot' }, `${compact(dailyPoints[safeHover].tokens)} ${t('unit.tokens')}`)
-                : null,
-            )
-            : h('div', { className: 'dsu-tip-foot' }, t('chart.hint')),
-        ),
+        safeHover >= 0 && tip
+          ? h('div', {
+            className: 'dsu-tip',
+            ref: tipRef,
+            style: {
+              left: `${tipPos ? tipPos.left : tip.x + 12}px`,
+              top: `${tipPos ? tipPos.top : tip.y + 12}px`,
+              transform: 'none',
+            },
+          },
+            h('div', { className: 'dsu-tip-head' },
+              mode === 'days' ? (dailyPoints[safeHover]?.day || dailyPoints[safeHover]?.label) : `T${safeHover}`,
+            ),
+            tooltipRows.map((row) => h('div', { key: row.key, className: 'dsu-tip-row' },
+              h('span', { className: 'dsu-tip-dot', style: { background: row.color } }),
+              h('span', { className: 'dsu-tip-name' }, row.label),
+              h('span', { className: 'dsu-tip-value' }, formatRaw(row.value, metric, symbol)),
+            )),
+            mode === 'days' && dailyPoints[safeHover]
+              ? h('div', { className: 'dsu-tip-foot' }, `${compact(dailyPoints[safeHover].tokens)} ${t('unit.tokens')}`)
+              : null,
+          )
+          : null,
         (mode === 'turns' || mode === 'turnValue') && items.length > 0
           ? h('div', { className: 'dsu-legend' },
             items.map((item) => h('button', {
@@ -1456,6 +1523,10 @@ window.__ModuleLoader__.load({
         const [update, setUpdate] = React.useState({ checking: false, result: null, error: '' })
         const [updateDismissed, setUpdateDismissed] = React.useState(false)
         const [listLimit, setListLimit] = React.useState(150)
+        const [turnWindow, setTurnWindow] = React.useState(null)
+        const [turnDraft, setTurnDraft] = React.useState('')
+        const [turnRangeError, setTurnRangeError] = React.useState('')
+        const [rangeNonce, setRangeNonce] = React.useState(0)
         const turnColor = useTurnColor()
         const effectiveScope = scope !== 'all' && !sessionId ? 'all' : scope
         const query = useQuery(ctx, effectiveScope, sessionId)
@@ -1510,6 +1581,30 @@ window.__ModuleLoader__.load({
         const chooseMetric = (next) => {
           setMetricId(next)
           writeMetricPref(next)
+        }
+
+        const applyTurnRange = () => {
+          const text = String(turnDraft || '').trim()
+          if (!text) {
+            setTurnRangeError(t('chart.rangeInvalid'))
+            return
+          }
+          const parsed = Number(text)
+          if (!Number.isSafeInteger(parsed) || parsed < 1) {
+            setTurnRangeError(t('chart.rangeInvalid'))
+            return
+          }
+          setTurnWindow(parsed)
+          setTurnDraft(String(parsed))
+          setTurnRangeError('')
+          setRangeNonce((value) => value + 1)
+        }
+
+        const clearTurnRange = () => {
+          setTurnWindow(null)
+          setTurnDraft('')
+          setTurnRangeError('')
+          setRangeNonce((value) => value + 1)
         }
 
         const runUpdateCheck = async () => {
@@ -1695,6 +1790,40 @@ window.__ModuleLoader__.load({
             ? (effectiveScope === 'current' ? '' : t('chart.seriesNote'))
             : (data ? `${t('chart.window')} ${data.chartDays || daily.length} ${t('unit.days')}` : '')
 
+        const rangeEnabled = (effectiveScope === 'project' || effectiveScope === 'all') && chartMode === 'turns'
+        const rangeControl = rangeEnabled
+          ? h('div', { className: 'dsu-range' },
+            h('span', { className: 'dsu-range-label' }, t('chart.range')),
+            h('button', {
+              type: 'button',
+              className: `dsu-seg-btn${turnWindow === null ? ' is-on' : ''}`,
+              onClick: clearTurnRange,
+            }, t('chart.rangeAll')),
+            h('input', {
+              type: 'number',
+              min: 1,
+              step: 1,
+              className: 'dsu-range-input',
+              value: turnDraft,
+              placeholder: t('chart.rangePlaceholder'),
+              'aria-label': t('chart.rangePlaceholder'),
+              onChange: (event) => {
+                setTurnDraft(event.target.value)
+                setTurnRangeError('')
+              },
+              onBlur: () => {
+                if (turnDraft.trim()) applyTurnRange()
+              },
+              onKeyDown: (event) => {
+                if (event.key === 'Enter') applyTurnRange()
+              },
+            }),
+            turnRangeError
+              ? h('span', { className: 'dsu-range-error' }, turnRangeError)
+              : null,
+          )
+          : null
+
         const chartCard = h('div', { className: 'dsu-card' },
           h('div', { className: 'dsu-card-head' },
             h('div', { className: 'dsu-card-title' }, chartTitle),
@@ -1710,6 +1839,9 @@ window.__ModuleLoader__.load({
               ),
             ),
           ),
+          rangeControl
+            ? h('div', { className: 'dsu-range-row' }, rangeControl)
+            : null,
           hasChartData && hasAnyUsage
             ? h(UsageChart, {
               mode: chartMode,
@@ -1719,7 +1851,9 @@ window.__ModuleLoader__.load({
               symbol,
               t,
               showProject: effectiveScope === 'all',
-              hollowPoints: effectiveScope === 'current',
+              turnWindow: rangeEnabled ? turnWindow : null,
+              rangeNonce,
+              sessionKey: sessionId,
               onPick: chartMode === 'days'
                 ? undefined
                 : (pick) => openConversation(pick.sessionId, pick.turn),

@@ -93,18 +93,25 @@ refresh, scope/session changes, and unmount still abort the active request.
 - X axis is turn number (`T1`, `T2`, …), or the date in Daily mode; Y axis is
   the selected metric (single-turn in Per-turn value mode, cumulative in
   By-turn mode).
-- Hover snaps to the nearest turn or day inside the plot area. The detail panel
-  sits below the chart, never over the lines, and lists every visible series
-  (not a silent top-six slice).
-- Every real data point keeps a rendered marker, even when a series has more
-  than 24 points. The current conversation uses hollow markers (background fill,
-  series-colour stroke); project/all series stay solid. Daily mode always shows
-  a marker for a single-day window.
-- Clicking a data point's exact centre opens that conversation; inside the Usage
-  tab it selects the Chat view and addresses that turn. Other positions inside a
-  dot, line segments, the aggregate “other” series, and blank space do not
-  trigger. The hit test uses the actual rendered point centres, not interpolated
-  line or nearby-point tolerances.
+- Hover snaps to the nearest turn or day inside the plot area. The detail card
+  floats near the pointer (right/below first, switching sides when needed),
+  stays inside the visible chart area, and lists every visible series (not a
+  silent top-six slice). It does not change chart height or cover the chart
+  from a fixed top position.
+- **Display range** appears as its own row below the mode switch for **All
+  conversations** and **Current project** in By-turn mode only. **不限 / All**
+  is the default; entering a positive N limits the horizontal viewport to about
+  N turns, with native horizontal scrolling through the full original turn axis.
+  The cumulative series still accumulates from the real first turn; scrolling
+  never rebases the values. Invalid input leaves the current range unchanged and
+  shows a short error. Current conversation and Daily mode never apply it.
+- No solid data-point markers are drawn in the default state. Hovering a column
+  shows the hollow point(s) at that turn (background fill, series-colour stroke)
+  for the visible series; project/all use the same hover-only marker. Daily mode
+  always shows a marker for a single-day window.
+- Clicking a rendered hollow marker opens that conversation; inside the Usage
+  tab it selects the Chat view and addresses that turn. Line segments, aggregate
+  markers, and blank space do not trigger.
 - Turn navigation is bound to its target session: a pending jump is cancelled
   when the active session changes, and retries never touch a newer session's
   turn rail.

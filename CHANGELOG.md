@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.3.0] - 2026-11-09
+
+Display/range release. Host accounting is unchanged.
+
+### Added
+
+- **Turn display range** for **All conversations** and **Current project** in
+  By-turn mode. The default is **不限 / All**; a positive N limits the shared
+  horizontal viewport to about N turns, with native scrolling through the full
+  original turn axis. The control is a dedicated row below the mode switch.
+  Current conversation and Daily mode never apply the range.
+- The range reuses the existing validation/state: invalid input leaves the
+  effective range unchanged, cumulative values still start at the real first
+  turn, and switching modes/scopes does not leak a hidden limit.
+
+### Changed
+
+- Restored the floating detail card near the pointer (right/below first,
+  switching sides as needed), with actual card-size clamping and no chart-height
+  shift. Replaces the fixed below-chart panel.
+- Hover-only hollow point markers for all scopes; clicking a rendered marker
+  opens the original session/turn. No default solid markers; line/blank/aggregate
+  targets do not navigate.
+
 ## [1.2.6] - 2026-11-09
 
 Chart-only follow-up for the v1.2.5 review.
@@ -337,7 +361,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.0
 [1.2.6]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.6
 [1.2.5]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.5
 [1.2.4]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.4
