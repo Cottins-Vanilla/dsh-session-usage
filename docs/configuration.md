@@ -116,13 +116,13 @@ survives a refresh. The Client catches storage errors, so a profile with
 
 ## Update check
 
-The panel's **检查更新 / Check for updates** button calls the same-origin
-`POST /api/session-usage/update` route. The Host reads the installed
-`package.json` version and fetches the latest GitHub release tag from
-`api.github.com`; it compares the two and caches a successful result for six
-hours. The check is manual — there is no background polling and no config key
-for it. A failure is non-fatal and appears as a small header note; it never
-blocks the usage query. No session contents or identity are sent.
+The plugin checks once on each Harness login; its **检查更新 / Check for updates**
+button forces a same-origin `POST /api/session-usage/update` call. The Host reads
+the installed `package.json` version and fetches the latest GitHub release tag
+from `api.github.com`; it compares the two and caches a successful result for six
+hours. A newer release shows a red dot on the button and a release banner. A
+manual failure is non-fatal and shown as a non-blocking banner; it never blocks
+the usage query. No session contents or identity are sent.
 
 ## Recommended starting points
 

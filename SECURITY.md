@@ -42,8 +42,9 @@ Understanding the data flow makes reports easier to assess:
   first user message. Prompts, tool output, attachments, and credentials are not
   returned to the Client.
 - **No external network by default.** The Client's routine request is one
-  same-origin, authenticated route: `POST /api/session-usage/query`. Pressing
-  **Check for updates** makes one Host-side HTTPS request to
+  same-origin, authenticated route: `POST /api/session-usage/query`. The update
+  check (once per Harness login or the manual button) makes one Host-side HTTPS
+  request to
   `api.github.com/repos/Cottins-Vanilla/dsh-session-usage/releases/latest`; the
   result is cached for six hours. The plugin does not contact the author or send
   session data to any third party.

@@ -29,8 +29,10 @@ screenshots, reviews, and accessibility checks.
 
 1. **Header** — title, subtitle, loading indicator, **检查更新 / Check for
    updates**, and refresh.
-   - The update check is manual. It shows “已是最新版本 / Up to date”, a
-     non-blocking failure note, or an update banner.
+   - The plugin checks once per Harness login; the button forces a check.
+     A newer release shows a red dot at the button's upper-left and a release
+     banner. A manual check also shows an up-to-date or failure banner; automatic
+     failures stay silent.
    - The banner names the installed and latest versions and offers **查看 Release
      / View release** plus dismiss. It uses the GitHub release URL returned by the
      Host.

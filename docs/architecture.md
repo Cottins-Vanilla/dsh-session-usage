@@ -150,10 +150,10 @@ releaseUrl, releaseName, publishedAt, checkedAt
 error: { code, message }       when ok is false
 ```
 
-A successful result is cached for six hours; `force` bypasses the cache for an
-explicit button press. Only the release tag, name, URL, and published time are
-returned. The request is user-initiated, carries no session data, and its failure
-does not affect the usage query.
+A successful result is cached for six hours; the plugin checks once per Harness
+login using the cache, while the manual button sends `force` to bypass it. Only
+the release tag, name, URL, and published time are returned. The request carries
+no session data, and its failure does not affect the usage query.
 
 ## Client half (`client.js`)
 
@@ -200,8 +200,9 @@ does not affect the usage query.
   of message text it retains is a short fallback title (up to 120 characters)
   derived from the first user message when no `session/title` event exists.
 - The Client cannot read the session log directly; it only calls the Host routes.
-- No third-party request is made by default. The optional update check makes one
-  Host-side request to the GitHub releases API when the user presses the button.
+- No third-party request is made unless the plugin checks for updates. It checks
+  once per Harness login, and the button can force a check; each makes one
+  Host-side request to the GitHub releases API.
 - The plugin never writes session events or profile files.
 
 ## Failure modes

@@ -67,13 +67,13 @@ End of a completed answer
   custom color picker. The choice is stored locally.
 - **Live enough** — the panel refreshes every 15 seconds, the header chip every
   8 seconds, and turn badges share one request per conversation.
-- **Update check** — a **Check for updates** button asks the Host to compare the
-  installed version with the latest GitHub release and shows a release link when
-  a newer version exists. The check is manual.
+- **Update check** — on each Harness login the plugin checks the latest GitHub
+  release once, and offers a manual **Check for updates** button. A newer release
+  shows a release link and a red dot on the button. The Host caches the result for
+  six hours.
 - **Bilingual** — complete English and Simplified Chinese dictionaries.
 - **Read-only by design** — no session-log writes, no profile edits, no
-  third-party network calls unless you explicitly check for updates, and no
-  telemetry.
+  third-party network calls except the update check, and no telemetry.
 
 ## Install
 
@@ -250,9 +250,9 @@ committed live events.
   session data.
 - **No external network by default** — the only routine HTTP request is the
   same-origin, authenticated `POST /api/session-usage/query` between this
-  bundle's Client and Host halves. Pressing **Check for updates** makes one
-  Host-side request to `api.github.com` for the latest release tag; the result is
-  cached for six hours. No data about you or your sessions is sent.
+  bundle's Client and Host halves. The update check (once per Harness login or
+  the manual button) makes one Host-side request to `api.github.com`; the Host
+  caches the result for six hours. No data about you or your sessions is sent.
 - **No telemetry** — nothing is reported to the author or a third party.
 - **No secrets** — the plugin reads token counts and model ids, not credentials
   or account data. The only message text it retains is a short fallback title

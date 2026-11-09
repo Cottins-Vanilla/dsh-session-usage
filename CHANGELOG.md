@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.4.0] - 2026-11-09
+
+### Added
+
+- **Automatic update check on each Harness login.** The result is shared across
+  panel mounts, so reopening the panel does not repeat it. A newer release shows
+  a red dot at the upper-left of **检查更新**; manual checks still force a refresh.
+- **Visible-range Y-axis scaling.** With a limited turn range, the Y axis follows
+  the currently scrolled window, including interpolated segment edges, instead of
+  being flattened by off-screen highs.
+
+### Fixed
+
+- The turn-range viewport now uses the actual available width and N, so N=1 and
+  N=20 produce different visible spans; N larger than the data falls back to
+  fitting all turns.
+- Manual **检查更新** now always reports a result: newer release, up to date, or
+  a failure banner. A click during an automatic check queues a manual check.
+
 ## [1.3.1] - 2026-11-09
 
 ### Fixed
@@ -371,7 +390,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.4.0
 [1.3.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.1
 [1.3.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.0
 [1.2.6]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.6

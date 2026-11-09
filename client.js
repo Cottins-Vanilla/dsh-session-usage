@@ -276,7 +276,7 @@ window.__ModuleLoader__.load({
 .dsu-range-input{width:104px;height:22px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;padding:0 6px}
 .dsu-range-error{font-size:10.5px;color:var(--dsw-alias-state-error-primary)}
 .dsu-chart-wrap{position:relative;width:100%}
-.dsu-chart-scroll{width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
+.dsu-chart-scroll{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain}
 .dsu-chart-viewport{position:relative}
 .dsu-chart{display:block;width:100%;height:auto;overflow:visible}
 .dsu-tip{position:absolute;top:4px;background:var(--dsw-alias-bg-overlay);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:6px 8px;font-size:11px;line-height:1.4;white-space:normal;pointer-events:none;z-index:3;min-width:150px;max-width:min(300px, calc(100% - 8px))}
@@ -316,9 +316,15 @@ window.__ModuleLoader__.load({
 .dsu-update::before{content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:var(--dsw-alias-brand-primary)}
 .dsu-update-main{min-width:0}
 .dsu-update-title{font-size:12px;font-weight:600;color:var(--dsw-alias-brand-primary)}
-.dsu-update-sub{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px}
+.dsu-update-sub{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:2px;overflow-wrap:anywhere}
 .dsu-update-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dsu-update-failure::before{background:var(--dsw-alias-state-error-primary)}
+.dsu-update-failure .dsu-update-title{color:var(--dsw-alias-state-error-primary)}
+.dsu-update-current::before{background:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
+.dsu-update-current .dsu-update-title{color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
 .dsu-update-link{text-decoration:none}
+.dsu-update-wrap{position:relative;display:inline-flex}
+.dsu-update-dot{position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-error-primary);box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1);z-index:1}
 .dsu-update-ok{color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
 .dsu-update-error{color:var(--dsw-alias-state-error-primary);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dsu-foot{font-size:11px;color:var(--dsw-alias-label-secondary);display:flex;flex-wrap:wrap;gap:4px 12px}
@@ -584,11 +590,11 @@ window.__ModuleLoader__.load({
       return body
     }
 
-    async function checkForUpdate() {
+    async function checkForUpdate(force = true) {
       const init = {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ force: true }),
+        body: JSON.stringify({ force }),
       }
       if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
         init.signal = AbortSignal.timeout(12000)
@@ -606,6 +612,65 @@ window.__ModuleLoader__.load({
         throw new Error(message || 'The update endpoint failed.')
       }
       return body
+    }
+
+    const updateStore = {
+      state: { checking: false, result: null, error: '', manual: false },
+      listeners: new Set(),
+    }
+    let updateChecking = false
+    let pendingManualUpdate = false
+    let autoUpdateStarted = false
+
+    function setUpdateState(patch) {
+      const next = typeof patch === 'function' ? patch(updateStore.state) : { ...updateStore.state, ...patch }
+      updateStore.state = next
+      for (const listener of updateStore.listeners) listener()
+    }
+
+    function useUpdateStore() {
+      const force = React.useReducer((value) => value + 1, 0)[1]
+      React.useEffect(() => {
+        updateStore.listeners.add(force)
+        return () => updateStore.listeners.delete(force)
+      }, [force])
+      return updateStore.state
+    }
+
+    async function runUpdate(force = true, manual = true) {
+      if (updateChecking) {
+        if (manual) pendingManualUpdate = true
+        return
+      }
+      updateChecking = true
+      setUpdateState((previous) => ({ ...previous, checking: true, error: '', manual }))
+      try {
+        const result = await checkForUpdate(force)
+        setUpdateState({ checking: false, result, error: '', manual })
+      } catch (error) {
+        if (manual) {
+          setUpdateState({
+            checking: false,
+            result: null,
+            error: String(error?.message || error),
+            manual: true,
+          })
+        } else {
+          setUpdateState((previous) => ({ ...previous, checking: false, error: '', manual: false }))
+        }
+      } finally {
+        updateChecking = false
+        if (pendingManualUpdate) {
+          pendingManualUpdate = false
+          runUpdate(true, true)
+        }
+      }
+    }
+
+    function runAutoUpdate() {
+      if (autoUpdateStarted) return
+      autoUpdateStarted = true
+      runUpdate(false, false)
     }
 
     function useQuery(ctx, scope, sessionId) {
@@ -955,10 +1020,29 @@ window.__ModuleLoader__.load({
       const [hidden, setHidden] = React.useState(() => new Set())
       const [tip, setTip] = React.useState(null)
       const [tipPos, setTipPos] = React.useState(null)
+      const [availableWidth, setAvailableWidth] = React.useState(760)
+      const [scrollLeft, setScrollLeft] = React.useState(0)
       const wrapRef = React.useRef(null)
       const scrollRef = React.useRef(null)
       const tipRef = React.useRef(null)
       let width = width0
+
+      React.useLayoutEffect(() => {
+        const element = wrapRef.current
+        if (!element) return undefined
+        const measure = () => {
+          const next = element.clientWidth
+          if (next > 0) setAvailableWidth((previous) => (Math.abs(previous - next) < 1 ? previous : next))
+        }
+        measure()
+        if (typeof ResizeObserver === 'function') {
+          const observer = new ResizeObserver(measure)
+          observer.observe(element)
+          return () => observer.disconnect()
+        }
+        window.addEventListener('resize', measure)
+        return () => window.removeEventListener('resize', measure)
+      }, [])
 
       const dailyPoints = React.useMemo(() => (Array.isArray(daily) ? daily : []), [daily])
       const items = React.useMemo(() => {
@@ -1014,25 +1098,20 @@ window.__ModuleLoader__.load({
           : 0)),
       )
       const dailyValues = dailyPoints.map((point) => metricValue(point, metric))
-      let peak = 0
-      if (mode === 'days') {
-        for (const value of dailyValues) peak = Math.max(peak, value)
-      } else if (mode === 'turns') {
-        for (const item of visible) peak = Math.max(peak, item.series.total)
-      } else {
-        for (const item of visible) {
-          for (const entry of item.series.values) peak = Math.max(peak, entry.value)
-        }
-      }
-      const max = niceMax(peak)
       const TURN_STEP = 42
-      const limited = mode !== 'days' && Number.isSafeInteger(turnWindow) && turnWindow > 0
+      const turnSpan = Math.max(1, maxTurn)
+      const limited = mode !== 'days'
+        && Number.isSafeInteger(turnWindow)
+        && turnWindow > 0
+        && turnWindow < turnSpan
+      const plotSpan = Math.max(120, availableWidth - padLeft - padRight)
+      const step = limited
+        ? (turnWindow > 1 ? plotSpan / (turnWindow - 1) : Math.max(1, availableWidth - padLeft + 1))
+        : TURN_STEP
       const contentWidth = limited
-        ? Math.max(padLeft + padRight + TURN_STEP, padLeft + padRight + Math.max(1, maxTurn - 1) * TURN_STEP)
+        ? padLeft + padRight + Math.max(0, turnSpan - 1) * step
         : width0
-      const viewportWidth = limited
-        ? Math.min(contentWidth, padLeft + padRight + Math.max(1, turnWindow) * TURN_STEP)
-        : width0
+      const viewportWidth = limited ? availableWidth : width0
       width = contentWidth
       const span = width - padLeft - padRight
       const xDay = (index) => (dailyPoints.length <= 1
@@ -1043,6 +1122,61 @@ window.__ModuleLoader__.load({
         const clamped = Math.max(1, Math.min(maxTurn, Number(turn) || 1))
         return padLeft + ((clamped - 1) / (maxTurn - 1)) * span
       }
+
+      const viewportLeft = Math.max(padLeft, scrollLeft)
+      const viewportRight = Math.min(padLeft + span, scrollLeft + viewportWidth - padRight)
+      const visibleStartTurn = limited
+        ? Math.max(1, Math.min(maxTurn, 1 + (viewportLeft - padLeft) / step))
+        : 1
+      const visibleEndTurn = limited
+        ? Math.max(1, Math.min(maxTurn, 1 + (viewportRight - padLeft) / step))
+        : maxTurn
+      const peakAt = (item, turn) => {
+        const values = item.series.values
+        if (!values.length) return 0
+        if (turn <= values[0].turn) return values[0].value
+        if (turn >= values[values.length - 1].turn) return values[values.length - 1].value
+        for (let index = 0; index < values.length - 1; index += 1) {
+          const left = values[index]
+          const right = values[index + 1]
+          if (turn < left.turn || turn > right.turn) continue
+          if (right.turn === left.turn) return Math.max(left.value, right.value)
+          const ratio = (turn - left.turn) / (right.turn - left.turn)
+          return left.value + (right.value - left.value) * ratio
+        }
+        return 0
+      }
+      const visiblePeak = (item) => {
+        const values = item.series.values
+        if (!values.length) return 0
+        if (values[values.length - 1].turn < visibleStartTurn || values[0].turn > visibleEndTurn) return 0
+        let peakValue = 0
+        for (const entry of values) {
+          if (entry.turn >= visibleStartTurn && entry.turn <= visibleEndTurn) {
+            peakValue = Math.max(peakValue, entry.value)
+          }
+        }
+        peakValue = Math.max(
+          peakValue,
+          peakAt(item, visibleStartTurn),
+          peakAt(item, visibleEndTurn),
+        )
+        return peakValue
+      }
+
+      let peak = 0
+      if (mode === 'days') {
+        for (const value of dailyValues) peak = Math.max(peak, value)
+      } else if (limited) {
+        for (const item of visible) peak = Math.max(peak, visiblePeak(item))
+      } else if (mode === 'turns') {
+        for (const item of visible) peak = Math.max(peak, item.series.total)
+      } else {
+        for (const item of visible) {
+          for (const entry of item.series.values) peak = Math.max(peak, entry.value)
+        }
+      }
+      const max = niceMax(peak)
       const yOf = (value) => padTop + (1 - value / max) * (baseY - padTop)
 
       function pointerOf(event) {
@@ -1164,7 +1298,16 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         if (scrollRef.current) scrollRef.current.scrollLeft = 0
+        setScrollLeft(0)
       }, [turnWindow, rangeNonce, sessionKey])
+
+      React.useEffect(() => {
+        const element = scrollRef.current
+        if (!element) return
+        const max = Math.max(0, element.scrollWidth - element.clientWidth)
+        if (element.scrollLeft > max) element.scrollLeft = max
+        setScrollLeft(element.scrollLeft)
+      }, [availableWidth, turnWindow])
 
       React.useLayoutEffect(() => {
         const wrap = wrapRef.current
@@ -1206,7 +1349,9 @@ window.__ModuleLoader__.load({
         h('div', {
           className: 'dsu-chart-scroll',
           ref: scrollRef,
+          style: limited ? { width: `${viewportWidth}px` } : { width: '100%' },
           onScroll: () => {
+            setScrollLeft(scrollRef.current ? scrollRef.current.scrollLeft : 0)
             setHover(-1)
             setTip(null)
             setTipPos(null)
@@ -1214,7 +1359,7 @@ window.__ModuleLoader__.load({
         },
           h('div', {
             className: 'dsu-chart-viewport',
-            style: limited ? { width: `${viewportWidth}px` } : { width: '100%' },
+            style: limited ? { width: `${contentWidth}px` } : { width: '100%' },
           },
             h('svg', {
               className: 'dsu-chart',
@@ -1520,7 +1665,7 @@ window.__ModuleLoader__.load({
         const [metricId, setMetricId] = React.useState(readMetricPref)
         const [chartMode, setChartMode] = React.useState(() => (sessionId ? 'turnValue' : 'days'))
         const [openError, setOpenError] = React.useState('')
-        const [update, setUpdate] = React.useState({ checking: false, result: null, error: '' })
+        const update = useUpdateStore()
         const [updateDismissed, setUpdateDismissed] = React.useState(false)
         const [listLimit, setListLimit] = React.useState(150)
         const [turnWindow, setTurnWindow] = React.useState(null)
@@ -1607,15 +1752,9 @@ window.__ModuleLoader__.load({
           setRangeNonce((value) => value + 1)
         }
 
-        const runUpdateCheck = async () => {
-          setUpdate((previous) => ({ ...previous, checking: true, error: '' }))
-          try {
-            const result = await checkForUpdate()
-            setUpdate({ checking: false, result, error: '' })
-            setUpdateDismissed(false)
-          } catch (error) {
-            setUpdate({ checking: false, result: null, error: String(error?.message || error) })
-          }
+        const handleManualUpdate = () => {
+          setUpdateDismissed(false)
+          runUpdate(true, true)
         }
 
         const open = (id) => {
@@ -1662,21 +1801,24 @@ window.__ModuleLoader__.load({
             query.loading && data
               ? h('span', { className: 'dsu-card-note' }, h('span', { className: 'dsu-spin' }), t('panel.loading'))
               : null,
-            update.error
-              ? h('span', { className: 'dsu-card-note dsu-update-error', title: update.error }, t('update.failed'))
-              : null,
-            update.result && !update.result.updateAvailable && !update.checking
-              ? h('span', { className: 'dsu-card-note dsu-update-ok' }, t('update.upToDate'))
-              : null,
-            h('button', {
-              type: 'button',
-              className: 'dsu-btn',
-              onClick: runUpdateCheck,
-              disabled: update.checking,
-              title: t('update.hint'),
-            },
-              h(UpdateIcon),
-              h('span', null, t(update.checking ? 'update.checking' : 'update.check')),
+            h('span', { className: 'dsu-update-wrap' },
+              update.result && update.result.updateAvailable
+                ? h('span', {
+                  className: 'dsu-update-dot',
+                  title: t('update.available'),
+                  'aria-hidden': true,
+                })
+                : null,
+              h('button', {
+                type: 'button',
+                className: 'dsu-btn',
+                onClick: handleManualUpdate,
+                disabled: update.checking,
+                title: t('update.hint'),
+              },
+                h(UpdateIcon),
+                h('span', null, t(update.checking ? 'update.checking' : 'update.check')),
+              ),
             ),
             h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh },
               h(RefreshIcon),
@@ -1989,6 +2131,22 @@ window.__ModuleLoader__.load({
           )
           : null
 
+        const updateFeedback = update.manual && update.error
+          ? h('div', { className: 'dsu-update dsu-update-failure', role: 'alert' },
+            h('div', { className: 'dsu-update-main' },
+              h('div', { className: 'dsu-update-title' }, t('update.failed')),
+              h('div', { className: 'dsu-update-sub' }, update.error),
+            ),
+          )
+          : update.manual && update.result && !update.result.updateAvailable
+            ? h('div', { className: 'dsu-update dsu-update-current', role: 'status' },
+              h('div', { className: 'dsu-update-main' },
+                h('div', { className: 'dsu-update-title' }, t('update.upToDate')),
+                h('div', { className: 'dsu-update-sub' }, `${t('update.current')} v${update.result.current}`),
+              ),
+            )
+            : null
+
         const updateBanner = update.result && update.result.updateAvailable && !updateDismissed
           ? h('div', { className: 'dsu-update', role: 'status' },
             h('div', { className: 'dsu-update-main' },
@@ -2017,11 +2175,17 @@ window.__ModuleLoader__.load({
 
         let body
         if (!data && query.loading) {
-          body = h('div', { className: 'dsu-empty' }, h('span', { className: 'dsu-spin' }), t('panel.loading'))
+          body = h(React.Fragment, null,
+            updateFeedback,
+            h('div', { className: 'dsu-empty' }, h('span', { className: 'dsu-spin' }), t('panel.loading')),
+          )
         } else if (!data && query.error) {
-          body = h('div', { className: 'dsu-error' },
-            h('div', { className: 'dsu-error-text' }, `${t('error.title')}: ${query.error}`),
-            h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
+          body = h(React.Fragment, null,
+            updateFeedback,
+            h('div', { className: 'dsu-error' },
+              h('div', { className: 'dsu-error-text' }, `${t('error.title')}: ${query.error}`),
+              h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
+            ),
           )
         } else if (data) {
           body = h(React.Fragment, null,
@@ -2031,6 +2195,7 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
               )
               : null,
+            updateFeedback,
             updateBanner,
             kpis,
             chartCard,
@@ -2197,6 +2362,7 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         ctx.effect(() => registerLocale(ctx))
         ctx.effect(() => () => cancelChatTurnNavigation())
+        runAutoUpdate()
         const Icon = createIcon(ctx)
         const Chip = createChip(ctx)
         const Panel = createPanel(ctx)
