@@ -61,7 +61,7 @@ window.__ModuleLoader__.load({
         'chart.modeTurnValue': '每轮值',
         'chart.turnValue': '每轮值',
         'chart.perTurn': '单轮消耗，不累计',
-        'chart.clickHint': '点击曲线跳转到对应对话或轮次',
+        'chart.clickHint': '点击数据点圆心跳转到对应对话或轮次',
         'chart.otherPrefix': '其他',
         'chart.legendHint': '点击图例可隐藏或显示对应对话',
         'chart.seriesNote': '最多显示 8 个对话',
@@ -153,7 +153,7 @@ window.__ModuleLoader__.load({
         'chart.modeTurnValue': 'Per-turn',
         'chart.turnValue': 'Per-turn value',
         'chart.perTurn': 'Single turn, not cumulative',
-        'chart.clickHint': 'Click the curve to open the conversation or turn',
+        'chart.clickHint': 'Click a data-point centre to open the conversation or turn',
         'chart.otherPrefix': 'Other',
         'chart.legendHint': 'Click a legend item to hide or show that conversation',
         'chart.seriesNote': 'up to 8 conversations',
@@ -264,6 +264,7 @@ window.__ModuleLoader__.load({
 .dsu-chart-wrap{position:relative;width:100%}
 .dsu-chart{display:block;width:100%;height:auto;overflow:visible}
 .dsu-tip{position:absolute;top:4px;transform:translateX(-50%);background:var(--dsw-alias-bg-overlay);border:1px solid var(--dsw-alias-border-l1);border-radius:8px;padding:6px 8px;font-size:11px;line-height:1.4;white-space:normal;pointer-events:none;z-index:2;min-width:150px;max-width:300px}
+.dsu-tip.dsu-tip-inline{position:static;transform:none;left:auto;top:auto;width:auto;min-width:0;max-width:none;min-height:34px;margin-top:8px;padding:8px 10px;background:var(--dsw-alias-bg-layer-2)}
 .dsu-tip-head{font-size:10.5px;font-weight:600;color:var(--dsw-alias-label-secondary);margin-bottom:3px}
 .dsu-tip-row{display:grid;grid-template-columns:7px minmax(0,1fr) auto;gap:6px;align-items:center}
 .dsu-tip-dot{width:6px;height:6px;border-radius:50%}
@@ -927,7 +928,7 @@ window.__ModuleLoader__.load({
       return { values, total }
     }
 
-    function UsageChart({ mode, daily, turns, metric, symbol, t, showProject, onPick }) {
+    function UsageChart({ mode, daily, turns, metric, symbol, t, showProject, hollowPoints, onPick }) {
       const width = 760
       const height = 252
       const padLeft = 58
@@ -936,6 +937,7 @@ window.__ModuleLoader__.load({
       const padBottom = 30
       const baseY = height - padBottom
       const [hover, setHover] = React.useState(-1)
+      const [pointer, setPointer] = React.useState(null)
       const [hidden, setHidden] = React.useState(() => new Set())
 
       const dailyPoints = React.useMemo(() => (Array.isArray(daily) ? daily : []), [daily])
@@ -1026,6 +1028,12 @@ window.__ModuleLoader__.load({
       function onMove(event) {
         const pointer = pointerOf(event)
         if (!pointer) return
+        setPointer(pointer)
+        if (pointer.x < padLeft || pointer.x > width - padRight
+          || pointer.y < padTop || pointer.y > baseY) {
+          setHover(-1)
+          return
+        }
         if (mode === 'days') {
           if (dailyPoints.length === 0) return
           let best = 0
@@ -1044,17 +1052,17 @@ window.__ModuleLoader__.load({
         setHover(Math.max(1, Math.min(maxTurn, Math.round(1 + ratio * (maxTurn - 1)))))
       }
 
-      function onClick(event) {
-        if (typeof onPick !== 'function' || mode === 'days') return
-        const pointer = pointerOf(event)
-        if (!pointer) return
+      const CENTER_EPSILON = 0.01
+
+      function hitPoint(position) {
+        if (!position) return null
         let best = null
         let bestDistance = Infinity
         for (const item of visible) {
           for (const entry of item.series.values) {
             const distance = Math.hypot(
-              pointer.x - xTurn(entry.turn),
-              pointer.y - yOf(entry.value),
+              position.x - xTurn(entry.turn),
+              position.y - yOf(entry.value),
             )
             if (distance < bestDistance) {
               bestDistance = distance
@@ -1062,10 +1070,14 @@ window.__ModuleLoader__.load({
             }
           }
         }
-        // Only the exact data-point centre is a target. Aggregate points,
-        // other positions inside a dot, line segments, and blank space are not.
-        if (!best || best.item.other || bestDistance >= 1) return
-        onPick({ sessionId: best.item.id, turn: best.turn })
+        if (!best || best.item.other || bestDistance > CENTER_EPSILON) return null
+        return best
+      }
+
+      function onClick(event) {
+        if (typeof onPick !== 'function' || mode === 'days') return
+        const target = hitPoint(pointerOf(event))
+        if (target) onPick({ sessionId: target.item.id, turn: target.turn })
       }
 
       const safeHover = mode === 'days'
@@ -1140,7 +1152,6 @@ window.__ModuleLoader__.load({
             }
           }
           tooltipRows.sort((a, b) => b.value - a.value)
-          tooltipRows.splice(6)
         }
       }
 
@@ -1153,6 +1164,8 @@ window.__ModuleLoader__.load({
         if (maxTurn > 1 && turnLabelValues[turnLabelValues.length - 1] !== maxTurn) turnLabelValues.push(maxTurn)
       }
 
+      const canPick = typeof onPick === 'function' && mode !== 'days' && !!hitPoint(pointer)
+
       return h('div', { className: 'dsu-chart-wrap' },
         h('svg', {
           className: 'dsu-chart',
@@ -1160,9 +1173,12 @@ window.__ModuleLoader__.load({
           role: 'img',
           'aria-label': t(mode === 'days' ? 'chart.days' : (mode === 'turnValue' ? 'chart.turnValue' : 'chart.turns')),
           onMouseMove: onMove,
-          onMouseLeave: () => setHover(-1),
+          onMouseLeave: () => {
+            setPointer(null)
+            setHover(-1)
+          },
           onClick,
-          style: typeof onPick === 'function' && mode !== 'days' ? { cursor: 'pointer' } : undefined,
+          style: canPick ? { cursor: 'pointer' } : { cursor: 'default' },
         },
           typeof onPick === 'function' && mode !== 'days'
             ? h('title', null, t('chart.clickHint'))
@@ -1229,16 +1245,30 @@ window.__ModuleLoader__.load({
                 stroke: 'var(--dsw-alias-brand-primary)',
                 strokeWidth: 2,
               })
-              : null)
-            : visible.map((item) => (item.series.values.length <= 24
-              ? item.series.values.map((entry) => h('circle', {
-                key: `dot-${item.id}-${entry.turn}`,
-                cx: xTurn(entry.turn),
-                cy: yOf(entry.value),
-                r: safeHover === entry.turn ? 3.6 : 2.2,
-                fill: item.color,
-              }))
-              : null)),
+              : (dailyPoints.length === 1
+                ? h('circle', {
+                  cx: xDay(0),
+                  cy: yOf(dailyValues[0]),
+                  r: 4,
+                  fill: 'var(--dsw-alias-bg-base)',
+                  stroke: 'var(--dsw-alias-brand-primary)',
+                  strokeWidth: 2,
+                })
+                : null))
+            : visible.map((item) => h(React.Fragment, { key: `dots-${item.id}` },
+              item.series.values.map((entry) => {
+                const hollow = !!hollowPoints
+                return h('circle', {
+                  key: `dot-${item.id}-${entry.turn}`,
+                  cx: xTurn(entry.turn),
+                  cy: yOf(entry.value),
+                  r: safeHover === entry.turn ? 3.6 : 2.2,
+                  fill: hollow ? 'var(--dsw-alias-bg-base)' : item.color,
+                  stroke: hollow ? item.color : 'none',
+                  strokeWidth: hollow ? 1.8 : 0,
+                })
+              }),
+            )),
           mode === 'days'
             ? dailyPoints.map((point, index) => {
               if (index % labelStepDays !== 0 && index !== dailyPoints.length - 1) return null
@@ -1271,24 +1301,23 @@ window.__ModuleLoader__.load({
             })
             : null,
         ),
-        safeHover >= 0
-          ? h('div', {
-            className: 'dsu-tip',
-            style: { left: `${Math.min(96, Math.max(4, (hoverX / width) * 100))}%` },
-          },
-            h('div', { className: 'dsu-tip-head' },
-              mode === 'days' ? (dailyPoints[safeHover]?.day || dailyPoints[safeHover]?.label) : `T${safeHover}`,
-            ),
-            tooltipRows.map((row) => h('div', { key: row.key, className: 'dsu-tip-row' },
-              h('span', { className: 'dsu-tip-dot', style: { background: row.color } }),
-              h('span', { className: 'dsu-tip-name' }, row.label),
-              h('span', { className: 'dsu-tip-value' }, formatRaw(row.value, metric, symbol)),
-            )),
-            mode === 'days' && dailyPoints[safeHover]
-              ? h('div', { className: 'dsu-tip-foot' }, `${compact(dailyPoints[safeHover].tokens)} ${t('unit.tokens')}`)
-              : null,
-          )
-          : null,
+        h('div', { className: 'dsu-tip dsu-tip-inline' },
+          safeHover >= 0
+            ? h(React.Fragment, null,
+              h('div', { className: 'dsu-tip-head' },
+                mode === 'days' ? (dailyPoints[safeHover]?.day || dailyPoints[safeHover]?.label) : `T${safeHover}`,
+              ),
+              tooltipRows.map((row) => h('div', { key: row.key, className: 'dsu-tip-row' },
+                h('span', { className: 'dsu-tip-dot', style: { background: row.color } }),
+                h('span', { className: 'dsu-tip-name' }, row.label),
+                h('span', { className: 'dsu-tip-value' }, formatRaw(row.value, metric, symbol)),
+              )),
+              mode === 'days' && dailyPoints[safeHover]
+                ? h('div', { className: 'dsu-tip-foot' }, `${compact(dailyPoints[safeHover].tokens)} ${t('unit.tokens')}`)
+                : null,
+            )
+            : h('div', { className: 'dsu-tip-foot' }, t('chart.hint')),
+        ),
         (mode === 'turns' || mode === 'turnValue') && items.length > 0
           ? h('div', { className: 'dsu-legend' },
             items.map((item) => h('button', {
@@ -1690,6 +1719,7 @@ window.__ModuleLoader__.load({
               symbol,
               t,
               showProject: effectiveScope === 'all',
+              hollowPoints: effectiveScope === 'current',
               onPick: chartMode === 'days'
                 ? undefined
                 : (pick) => openConversation(pick.sessionId, pick.turn),

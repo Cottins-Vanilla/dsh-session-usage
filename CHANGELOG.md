@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.2.6] - 2026-11-09
+
+Chart-only follow-up for the v1.2.5 review.
+
+### Fixed
+
+- **C01 — whole-chart hand cursor and misleading title.** The SVG uses the
+  default cursor except when the pointer is exactly on a clickable data-point
+  centre; the cursor and click share one hit test. The title now says “click a
+  data-point centre”.
+- **C02 — points disappeared after 24 samples.** Every real data point keeps a
+  rendered marker, so long series no longer have invisible-but-clickable points.
+- **C03 — tooltip covered the plot and could overflow.** Details moved into a
+  reserved panel below the chart; hover is limited to the plot area, and the
+  panel width follows the container.
+- **C04 — only six detail rows were shown.** The detail panel lists every
+  visible series instead of silently dropping rows after six.
+- **C05 — a one-day daily chart had no marker.** A single-day series renders a
+  permanent hollow marker, independent of hover.
+- **C06 — sub-unit offsets were accepted.** Navigation requires the centre
+  within a tiny SVG-coordinate epsilon (0.01), not a 0.5–1 unit disc.
+
+### Added
+
+- **S01 — hollow current-conversation markers.** Current-conversation turn
+  points are hollow (background fill, series stroke); project/all points remain
+  solid.
+
+### Changed
+
+- Version 1.2.6; release notes include the v1.2.5...v1.2.6 Full Changelog link.
+- Client chart changes remain outside the repository's Host-focused behavioral
+  suite; 24 existing tests still pass.
+
 ## [1.2.5] - 2026-11-09
 
 Follow-up fixes for the v1.2.4 review. N01/N02/N03/N05 from the previous round
@@ -303,7 +337,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.5...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.2.6...HEAD
+[1.2.6]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.6
 [1.2.5]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.5
 [1.2.4]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.4
 [1.2.3]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.2.3

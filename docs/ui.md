@@ -93,8 +93,13 @@ refresh, scope/session changes, and unmount still abort the active request.
 - X axis is turn number (`T1`, `T2`, …), or the date in Daily mode; Y axis is
   the selected metric (single-turn in Per-turn value mode, cumulative in
   By-turn mode).
-- Hover snaps to the nearest turn or day. The tooltip lists up to six visible
-  series, sorted by value.
+- Hover snaps to the nearest turn or day inside the plot area. The detail panel
+  sits below the chart, never over the lines, and lists every visible series
+  (not a silent top-six slice).
+- Every real data point keeps a rendered marker, even when a series has more
+  than 24 points. The current conversation uses hollow markers (background fill,
+  series-colour stroke); project/all series stay solid. Daily mode always shows
+  a marker for a single-day window.
 - Clicking a data point's exact centre opens that conversation; inside the Usage
   tab it selects the Chat view and addresses that turn. Other positions inside a
   dot, line segments, the aggregate “other” series, and blank space do not
