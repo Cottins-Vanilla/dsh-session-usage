@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-usage",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "private": true,
   "description": "Session usage dashboard for DeepSeek Harness: price, tokens, per-turn curves, and per-answer cost badges.",
   "type": "module",

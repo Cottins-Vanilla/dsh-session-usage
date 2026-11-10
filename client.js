@@ -322,8 +322,24 @@ window.__ModuleLoader__.load({
 .dsu-update-failure .dsu-update-title{color:var(--dsw-alias-state-error-primary)}
 .dsu-update-current::before{background:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
 .dsu-update-current .dsu-update-title{color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
-.dsu-update.is-temporary{animation:dsu-update-expire 1.5s ease-out 2s forwards;will-change:opacity,transform;transform-origin:top center}
+.dsu-update.is-temporary,.dsu-update-popup.is-temporary{animation:dsu-update-expire 1.5s ease-out 2s forwards;will-change:opacity,transform;transform-origin:top center}
 @keyframes dsu-update-expire{0%{opacity:1;visibility:visible;transform:translateY(0)}100%{opacity:0;visibility:hidden;transform:translateY(-3px)}}
+.dsu-update-popup{position:fixed;right:24px;bottom:24px;z-index:100;width:min(380px,calc(100vw - 32px));box-sizing:border-box;padding:12px 14px;border:1px solid var(--dsw-alias-border-l1);border-left:3px solid var(--dsw-alias-brand-primary);border-radius:10px;background:var(--dsw-alias-bg-overlay);box-shadow:0 12px 32px rgba(0,0,0,.18);font-size:12px;line-height:1.45;pointer-events:auto}
+.dsu-update-popup.dsu-update-failure{border-left-color:var(--dsw-alias-state-error-primary)}
+.dsu-update-popup.dsu-update-current{border-left-color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
+.dsu-update-popup.dsu-update-available{background:var(--dsw-alias-state-error-primary);border-color:var(--dsw-alias-state-error-primary);color:#fff}
+.dsu-update-popup.dsu-update-available .dsu-update-title,
+.dsu-update-popup.dsu-update-available .dsu-update-sub{color:#fff}
+.dsu-update-popup.dsu-update-available .dsu-update-sub{opacity:.88}
+.dsu-update-popup.dsu-update-available .dsu-update-close{color:#fff}
+.dsu-update-popup.dsu-update-available .dsu-update-close:hover{background:rgba(255,255,255,.16);color:#fff}
+.dsu-update-popup.dsu-update-available .dsu-btn{border-color:rgba(255,255,255,.4);background:rgba(255,255,255,.14);color:#fff}
+.dsu-update-popup-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.dsu-update-close{flex:none;width:22px;height:22px;padding:0;border:0;border-radius:5px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:16px;line-height:20px;cursor:pointer}
+.dsu-update-close:hover{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary)}
+.dsu-update-popup .dsu-update-sub{margin-top:4px}
+.dsu-update-popup .dsu-update-actions{margin-top:8px}
+@media (max-width:640px){.dsu-update-popup{left:16px;right:16px;bottom:16px;width:auto}}
 @media (prefers-reduced-motion:reduce){.dsu-update.is-temporary{animation:none}}
 .dsu-update-link{text-decoration:none}
 .dsu-update-wrap{position:relative;display:inline-flex}
@@ -2172,73 +2188,56 @@ window.__ModuleLoader__.load({
           )
           : null
 
-        const updateFeedback = feedbackActive && update.error
+        const updatePopup = feedbackActive && !updateDismissed
           ? h('div', {
-            key: `update-feedback-${update.feedbackRevision}`,
-            className: 'dsu-update dsu-update-failure is-temporary',
-            role: 'alert',
+            key: `update-popup-${update.feedbackRevision}`,
+            className: `dsu-update-popup is-temporary${update.error ? ' dsu-update-failure' : (update.result && update.result.updateAvailable ? ' dsu-update-available' : ' dsu-update-current')}`,
+            role: update.error ? 'alert' : 'status',
+            'aria-live': 'polite',
           },
-            h('div', { className: 'dsu-update-main' },
-              h('div', { className: 'dsu-update-title' }, t('update.failed')),
-              h('div', { className: 'dsu-update-sub' }, update.error),
-            ),
-          )
-          : feedbackActive && update.result && !update.result.updateAvailable
-            ? h('div', {
-              key: `update-feedback-${update.feedbackRevision}`,
-              className: 'dsu-update dsu-update-current is-temporary',
-              role: 'status',
-            },
-              h('div', { className: 'dsu-update-main' },
-                h('div', { className: 'dsu-update-title' }, t('update.upToDate')),
-                h('div', { className: 'dsu-update-sub' }, `${t('update.current')} v${update.result.current}`),
-              ),
-            )
-            : null
-
-        const updateBanner = update.result && update.result.updateAvailable
-          && !updateDismissed && !update.checking
-          && (!update.manual || feedbackActive)
-          ? h('div', {
-            key: `update-banner-${update.manual ? update.feedbackRevision : 'auto'}`,
-            className: `dsu-update${update.manual ? ' is-temporary' : ''}`,
-            role: 'status',
-          },
-            h('div', { className: 'dsu-update-main' },
+            h('div', { className: 'dsu-update-popup-head' },
               h('div', { className: 'dsu-update-title' },
-                `${t('update.available')} · v${update.result.latest}`,
+                update.error
+                  ? t('update.failed')
+                  : (update.result && update.result.updateAvailable
+                    ? `${t('update.available')} · v${update.result.latest}`
+                    : t('update.upToDate')),
               ),
-              h('div', { className: 'dsu-update-sub' },
-                `${t('update.current')} v${update.result.current} · ${t('update.latest')} v${update.result.latest}`,
-              ),
-            ),
-            h('div', { className: 'dsu-update-actions' },
-              h('a', {
-                className: 'dsu-btn dsu-update-link',
-                href: update.result.releaseUrl,
-                target: '_blank',
-                rel: 'noopener noreferrer',
-              }, t('update.open')),
               h('button', {
                 type: 'button',
-                className: 'dsu-btn',
+                className: 'dsu-update-close',
                 onClick: () => setUpdateDismissed(true),
-              }, t('update.dismiss')),
+                title: t('update.dismiss'),
+                'aria-label': t('update.dismiss'),
+              }, '×'),
             ),
+            h('div', { className: 'dsu-update-sub' },
+              update.error
+                ? update.error
+                : (update.result && update.result.updateAvailable
+                  ? `${t('update.current')} v${update.result.current} · ${t('update.latest')} v${update.result.latest}`
+                  : `${t('update.current')} v${update.result ? update.result.current : ''}`),
+            ),
+            update.result && update.result.updateAvailable
+              ? h('div', { className: 'dsu-update-actions' },
+                h('a', {
+                  className: 'dsu-btn dsu-update-link',
+                  href: update.result.releaseUrl,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                }, t('update.open')),
+              )
+              : null,
           )
           : null
-
-        const updateMessages = h(React.Fragment, null, updateFeedback, updateBanner)
 
         let body
         if (!data && query.loading) {
           body = h(React.Fragment, null,
-            updateMessages,
             h('div', { className: 'dsu-empty' }, h('span', { className: 'dsu-spin' }), t('panel.loading')),
           )
         } else if (!data && query.error) {
           body = h(React.Fragment, null,
-            updateMessages,
             h('div', { className: 'dsu-error' },
               h('div', { className: 'dsu-error-text' }, `${t('error.title')}: ${query.error}`),
               h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
@@ -2252,7 +2251,6 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
               )
               : null,
-            updateMessages,
             kpis,
             chartCard,
             listCard,
@@ -2261,13 +2259,13 @@ window.__ModuleLoader__.load({
           )
         } else {
           body = h(React.Fragment, null,
-            updateMessages,
             h(Empty, { text: t('chart.empty') }),
           )
         }
 
         return h('div', { className: 'dsu-panel' },
           h(StyleTag),
+          updatePopup,
           h('div', { className: 'dsu-inner' },
             header,
             toolbar,

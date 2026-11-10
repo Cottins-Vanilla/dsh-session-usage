@@ -30,11 +30,13 @@ screenshots, reviews, and accessibility checks.
 1. **Header** — title, subtitle, loading indicator, **检查更新 / Check for
    updates**, and refresh.
    - The plugin checks once per Harness login; the button forces a check.
-     A newer release shows a red dot at the button's upper-left and a release
-     banner. A manual check also shows an up-to-date or failure banner, which
-     disappears after 3.5 seconds; automatic failures stay silent.
-   - The banner names the installed and latest versions and offers **查看 Release
-     / View release** plus dismiss. It uses the GitHub release URL returned by the
+     A newer release shows a red dot at the button's upper-left. A manual check
+     opens a floating result card at the lower-right for 3.5 seconds (2 seconds
+     hold plus a 1.5-second fade); it includes the release link and a close
+     button. An available update uses a red card with white text; up-to-date is
+     green and failures are red-accented. Automatic failures stay silent.
+   - The card names the installed and latest versions and offers **查看 Release
+     / View release** plus close. It uses the GitHub release URL returned by the
      Host.
 2. **Toolbar**
    - **统计范围 / Scope** — three labeled options. The label is a small caption

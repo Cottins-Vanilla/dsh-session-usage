@@ -120,10 +120,10 @@ The plugin checks once on each Harness login; its **检查更新 / Check for upd
 button forces a same-origin `POST /api/session-usage/update` call. The Host reads
 the installed `package.json` version and fetches the latest GitHub release tag
 from `api.github.com`; it compares the two and caches a successful result for six
-hours. A newer release shows a red dot on the button and a release banner. A
-manual failure is non-fatal and shown as a non-blocking banner that disappears
-after 3.5 seconds; it never blocks the usage query. No session contents or
-identity are sent.
+hours. A newer release shows a red dot on the button. A manual check opens a
+floating result card that holds for two seconds and fades over 1.5 seconds; an
+available update is red, up-to-date is green. It never blocks the usage query.
+No session contents or identity are sent.
 
 ## Recommended starting points
 

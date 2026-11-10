@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.4.2] - 2026-11-10
+
+### Changed
+
+- Manual update results now appear in a floating popup card at the lower-right
+  instead of an inline banner. The card holds for two seconds, then fades over
+  1.5 seconds, and includes a close button plus the Release link when applicable.
+- The update-available card uses a red background with white text, making the
+  required-update state distinct from the green up-to-date state.
+
+### Fixed
+
+- The popup fade animates only `opacity` and `transform`, avoiding the layout
+  work that caused visible frame drops.
+
 ## [1.4.1] - 2026-11-10
 
 ### Fixed
@@ -402,7 +417,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.4.2
 [1.4.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.4.1
 [1.4.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.4.0
 [1.3.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.1
