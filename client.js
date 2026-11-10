@@ -322,8 +322,9 @@ window.__ModuleLoader__.load({
 .dsu-update-failure .dsu-update-title{color:var(--dsw-alias-state-error-primary)}
 .dsu-update-current::before{background:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
 .dsu-update-current .dsu-update-title{color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
-.dsu-update.is-temporary{animation:dsu-update-expire 3.5s forwards}
-@keyframes dsu-update-expire{to{opacity:0;visibility:hidden;max-height:0;margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-width:0;overflow:hidden}}
+.dsu-update.is-temporary{animation:dsu-update-expire 1.5s ease-out 2s forwards;will-change:opacity,transform;transform-origin:top center}
+@keyframes dsu-update-expire{0%{opacity:1;visibility:visible;transform:translateY(0)}100%{opacity:0;visibility:hidden;transform:translateY(-3px)}}
+@media (prefers-reduced-motion:reduce){.dsu-update.is-temporary{animation:none}}
 .dsu-update-link{text-decoration:none}
 .dsu-update-wrap{position:relative;display:inline-flex}
 .dsu-update-dot{position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-error-primary);box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1);z-index:1}
