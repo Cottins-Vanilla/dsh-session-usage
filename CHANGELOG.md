@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Nothing yet.
 
+## [1.4.1] - 2026-11-10
+
+### Fixed
+
+- **Update feedback now reliably disappears after 3.5 seconds.** The deadline
+  lives in shared state instead of component-local dismissal, with a CSS expiry
+  fallback, so re-renders or panel remounts cannot keep an expired message alive.
+- A new manual check hides the previous result while it is in flight; the new
+  result gets its own full 3.5 seconds.
+- Update feedback is rendered independently of usage-data loading/error, so a
+  discovered release is not lost before the dashboard data arrives.
+
 ## [1.4.0] - 2026-11-09
 
 ### Added
@@ -390,7 +402,8 @@ empty `peakHours` boundary. It adds 8 behavioral regressions (17 total).
 - Ensured a conversation switch clears the previous conversation's title and
   working directory.
 
-[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.4.1
 [1.4.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.4.0
 [1.3.1]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.1
 [1.3.0]: https://github.com/Cottins-Vanilla/dsh-session-usage/releases/tag/v1.3.0

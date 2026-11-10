@@ -1,16 +1,13 @@
-# Session usage 1.4.0
+# Session usage 1.4.1
 
-- **Automatic update check on each Harness login**, shared across panel mounts.
-  A newer release shows a red dot at the upper-left of **检查更新**; a manual
-  check still forces a refresh.
-- **Manual update feedback:** newer release, up to date, or failure is always
-  shown; a click during an automatic check queues a manual check.
-- **Visible-range Y-axis scaling:** with a limited turn range, the Y axis follows
-  the scrolled window (including segment-edge interpolation) instead of being
-  flattened by off-screen highs.
-- **Range viewport fix:** N now controls the actual visible span; N=1 and N=20
-  differ, and N larger than the data fits all turns.
+- **Update feedback reliably disappears after 3.5 seconds.** The deadline is
+  shared across panel mounts and backed by a CSS expiry, so re-renders or
+  remounts cannot keep an expired message visible.
+- A new manual check hides the old result while the request is in flight; the new
+  result gets its full display time.
+- Update messages render independently of usage-data loading/error, so a
+  discovered release is not lost while the dashboard is still loading.
 
 Verification: 40 structural checks, 24 behavioral tests.
 
-**Full Changelog**: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.3.1...v1.4.0
+**Full Changelog**: https://github.com/Cottins-Vanilla/dsh-session-usage/compare/v1.4.0...v1.4.1

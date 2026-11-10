@@ -322,6 +322,8 @@ window.__ModuleLoader__.load({
 .dsu-update-failure .dsu-update-title{color:var(--dsw-alias-state-error-primary)}
 .dsu-update-current::before{background:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
 .dsu-update-current .dsu-update-title{color:var(--dsw-alias-state-success-primary, var(--dsw-alias-brand-primary))}
+.dsu-update.is-temporary{animation:dsu-update-expire 3.5s forwards}
+@keyframes dsu-update-expire{to{opacity:0;visibility:hidden;max-height:0;margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0;border-width:0;overflow:hidden}}
 .dsu-update-link{text-decoration:none}
 .dsu-update-wrap{position:relative;display:inline-flex}
 .dsu-update-dot{position:absolute;left:-3px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--dsw-alias-state-error-primary);box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1);z-index:1}
@@ -614,8 +616,17 @@ window.__ModuleLoader__.load({
       return body
     }
 
+    const UPDATE_FEEDBACK_MS = 3500
     const updateStore = {
-      state: { checking: false, result: null, error: '', manual: false },
+      state: {
+        checking: false,
+        result: null,
+        error: '',
+        manual: false,
+        revision: 0,
+        feedbackUntil: 0,
+        feedbackRevision: 0,
+      },
       listeners: new Set(),
     }
     let updateChecking = false
@@ -646,14 +657,31 @@ window.__ModuleLoader__.load({
       setUpdateState((previous) => ({ ...previous, checking: true, error: '', manual }))
       try {
         const result = await checkForUpdate(force)
-        setUpdateState({ checking: false, result, error: '', manual })
+        setUpdateState((previous) => {
+          const revision = previous.revision + 1
+          return {
+            checking: false,
+            result,
+            error: '',
+            manual,
+            revision,
+            feedbackRevision: manual ? revision : previous.feedbackRevision,
+            feedbackUntil: manual ? Date.now() + UPDATE_FEEDBACK_MS : previous.feedbackUntil,
+          }
+        })
       } catch (error) {
         if (manual) {
-          setUpdateState({
-            checking: false,
-            result: null,
-            error: String(error?.message || error),
-            manual: true,
+          setUpdateState((previous) => {
+            const revision = previous.revision + 1
+            return {
+              checking: false,
+              result: null,
+              error: String(error?.message || error),
+              manual: true,
+              revision,
+              feedbackRevision: revision,
+              feedbackUntil: Date.now() + UPDATE_FEEDBACK_MS,
+            }
           })
         } else {
           setUpdateState((previous) => ({ ...previous, checking: false, error: '', manual: false }))
@@ -1667,6 +1695,18 @@ window.__ModuleLoader__.load({
         const [openError, setOpenError] = React.useState('')
         const update = useUpdateStore()
         const [updateDismissed, setUpdateDismissed] = React.useState(false)
+        const [updateNow, setUpdateNow] = React.useState(() => Date.now())
+        const feedbackActive = update.manual
+          && !update.checking
+          && !!(update.error || update.result)
+          && update.feedbackUntil > updateNow
+
+        React.useEffect(() => {
+          if (!feedbackActive) return undefined
+          const remaining = update.feedbackUntil - Date.now()
+          const timer = window.setTimeout(() => setUpdateNow(Date.now()), Math.max(0, remaining))
+          return () => window.clearTimeout(timer)
+        }, [feedbackActive, update.feedbackUntil])
         const [listLimit, setListLimit] = React.useState(150)
         const [turnWindow, setTurnWindow] = React.useState(null)
         const [turnDraft, setTurnDraft] = React.useState('')
@@ -2131,15 +2171,23 @@ window.__ModuleLoader__.load({
           )
           : null
 
-        const updateFeedback = update.manual && update.error
-          ? h('div', { className: 'dsu-update dsu-update-failure', role: 'alert' },
+        const updateFeedback = feedbackActive && update.error
+          ? h('div', {
+            key: `update-feedback-${update.feedbackRevision}`,
+            className: 'dsu-update dsu-update-failure is-temporary',
+            role: 'alert',
+          },
             h('div', { className: 'dsu-update-main' },
               h('div', { className: 'dsu-update-title' }, t('update.failed')),
               h('div', { className: 'dsu-update-sub' }, update.error),
             ),
           )
-          : update.manual && update.result && !update.result.updateAvailable
-            ? h('div', { className: 'dsu-update dsu-update-current', role: 'status' },
+          : feedbackActive && update.result && !update.result.updateAvailable
+            ? h('div', {
+              key: `update-feedback-${update.feedbackRevision}`,
+              className: 'dsu-update dsu-update-current is-temporary',
+              role: 'status',
+            },
               h('div', { className: 'dsu-update-main' },
                 h('div', { className: 'dsu-update-title' }, t('update.upToDate')),
                 h('div', { className: 'dsu-update-sub' }, `${t('update.current')} v${update.result.current}`),
@@ -2147,8 +2195,14 @@ window.__ModuleLoader__.load({
             )
             : null
 
-        const updateBanner = update.result && update.result.updateAvailable && !updateDismissed
-          ? h('div', { className: 'dsu-update', role: 'status' },
+        const updateBanner = update.result && update.result.updateAvailable
+          && !updateDismissed && !update.checking
+          && (!update.manual || feedbackActive)
+          ? h('div', {
+            key: `update-banner-${update.manual ? update.feedbackRevision : 'auto'}`,
+            className: `dsu-update${update.manual ? ' is-temporary' : ''}`,
+            role: 'status',
+          },
             h('div', { className: 'dsu-update-main' },
               h('div', { className: 'dsu-update-title' },
                 `${t('update.available')} · v${update.result.latest}`,
@@ -2173,15 +2227,17 @@ window.__ModuleLoader__.load({
           )
           : null
 
+        const updateMessages = h(React.Fragment, null, updateFeedback, updateBanner)
+
         let body
         if (!data && query.loading) {
           body = h(React.Fragment, null,
-            updateFeedback,
+            updateMessages,
             h('div', { className: 'dsu-empty' }, h('span', { className: 'dsu-spin' }), t('panel.loading')),
           )
         } else if (!data && query.error) {
           body = h(React.Fragment, null,
-            updateFeedback,
+            updateMessages,
             h('div', { className: 'dsu-error' },
               h('div', { className: 'dsu-error-text' }, `${t('error.title')}: ${query.error}`),
               h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
@@ -2195,8 +2251,7 @@ window.__ModuleLoader__.load({
                 h('button', { type: 'button', className: 'dsu-btn', onClick: query.refresh }, t('error.retry')),
               )
               : null,
-            updateFeedback,
-            updateBanner,
+            updateMessages,
             kpis,
             chartCard,
             listCard,
@@ -2204,7 +2259,10 @@ window.__ModuleLoader__.load({
             footer,
           )
         } else {
-          body = h(Empty, { text: t('chart.empty') })
+          body = h(React.Fragment, null,
+            updateMessages,
+            h(Empty, { text: t('chart.empty') }),
+          )
         }
 
         return h('div', { className: 'dsu-panel' },

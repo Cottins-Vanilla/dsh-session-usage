@@ -121,8 +121,9 @@ button forces a same-origin `POST /api/session-usage/update` call. The Host read
 the installed `package.json` version and fetches the latest GitHub release tag
 from `api.github.com`; it compares the two and caches a successful result for six
 hours. A newer release shows a red dot on the button and a release banner. A
-manual failure is non-fatal and shown as a non-blocking banner; it never blocks
-the usage query. No session contents or identity are sent.
+manual failure is non-fatal and shown as a non-blocking banner that disappears
+after 3.5 seconds; it never blocks the usage query. No session contents or
+identity are sent.
 
 ## Recommended starting points
 

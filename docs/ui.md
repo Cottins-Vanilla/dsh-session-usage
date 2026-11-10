@@ -31,8 +31,8 @@ screenshots, reviews, and accessibility checks.
    updates**, and refresh.
    - The plugin checks once per Harness login; the button forces a check.
      A newer release shows a red dot at the button's upper-left and a release
-     banner. A manual check also shows an up-to-date or failure banner; automatic
-     failures stay silent.
+     banner. A manual check also shows an up-to-date or failure banner, which
+     disappears after 3.5 seconds; automatic failures stay silent.
    - The banner names the installed and latest versions and offers **查看 Release
      / View release** plus dismiss. It uses the GitHub release URL returned by the
      Host.
